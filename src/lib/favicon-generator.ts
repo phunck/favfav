@@ -13,51 +13,91 @@ export async function generateFaviconZip(
   includeApple: boolean = false
 ): Promise<Buffer> {
   const zip = new JSZip();
+  const icoBuffers: Buffer[] = [];
+
+  // Helper: Resize nur wenn nötig
+  const resizeIfNeeded = async (buffer: Buffer, targetSize: number, sourceSize?: number): Promise<Buffer> => {
+    if (sourceSize === targetSize) {
+      return buffer; // Pixel-perfect: 1:1
+    }
+    return await sharp(buffer)
+      .resize(targetSize, targetSize, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+  };
 
   if (mode === "advanced" && advancedImages) {
-    const icoBuffers: Buffer[] = [];
+    // 1. Sammle alle hochgeladenen Bilder mit Größe
+    const uploaded = Object.entries(advancedImages)
+      .map(([sizeStr, file]) => ({ size: parseInt(sizeStr, 10), file }))
+      .filter((x): x is { size: number; file: File } => x.file !== null);
 
-    for (const size of Object.keys(advancedImages).map(Number)) {
-      const file = advancedImages[size];
-      if (!file) continue;
+    // 2. Finde das größte Bild für Fallback
+    const largest = uploaded.reduce((max, cur) => (cur.size > max.size ? cur : max), uploaded[0]);
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const resized = await sharp(buffer)
-        .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer();
+    // 3. Zielgrößen bestimmen
+    const targetSizes = [
+      ...ALL_SIZES,
+      ...(includeApple ? APPLE_SIZES : []),
+    ];
 
-      zip.file(`favicon-${size}x${size}.png`, resized);
-      icoBuffers.push(resized);
-    }
+    // 4. Für jede Zielgröße
+    for (const targetSize of targetSizes) {
+      const uploadedForSize = uploaded.find((x) => x.size === targetSize);
 
-    if (icoBuffers.length > 0) {
-      zip.file("favicon.ico", encodeIco(icoBuffers));
-    }
+      let sourceBuffer: Buffer;
+      let sourceSize: number;
 
-    if (includeApple) {
-      for (const size of APPLE_SIZES) {
-        if (advancedImages[size]) {
-          const buffer = Buffer.from(await advancedImages[size]!.arrayBuffer());
-          const applePng = await sharp(buffer)
-            .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .png()
-            .toBuffer();
-          zip.file(`apple-touch-icon-${size}x${size}.png`, applePng);
-        }
+      if (uploadedForSize) {
+        // Pixel-perfect: 1:1
+        sourceBuffer = Buffer.from(await uploadedForSize.file.arrayBuffer());
+        sourceSize = uploadedForSize.size;
+      } else if (largest && largest.size >= targetSize) {
+        // Runterskalieren vom größten
+        sourceBuffer = Buffer.from(await largest.file.arrayBuffer());
+        sourceSize = largest.size;
+      } else if (largest) {
+        // Hochskalieren (nur wenn keine bessere Option)
+        sourceBuffer = Buffer.from(await largest.file.arrayBuffer());
+        sourceSize = largest.size;
+      } else {
+        continue; // Sollte nie passieren
       }
+
+      const png = await resizeIfNeeded(sourceBuffer, targetSize, sourceSize);
+      const filename = targetSize <= 512
+        ? `favicon-${targetSize}x${targetSize}.png`
+        : `apple-touch-icon-${targetSize}x${targetSize}.png`;
+
+      zip.file(filename, png);
+      icoBuffers.push(png);
     }
-  } else if (mode === "simple" && simpleImage) {
+
+    // .ico nur aus Standardgrößen (max 256 für ICO)
+    const icoStandard = icoBuffers.filter((_, i) => targetSizes[i] <= 256);
+    if (icoStandard.length > 0) {
+      zip.file("favicon.ico", encodeIco(icoStandard));
+    }
+  }
+
+  // ==================== SIMPLE MODE ====================
+  else if (mode === "simple" && simpleImage) {
     const buffer = Buffer.from(await simpleImage.arrayBuffer());
 
+    // Alle Standardgrößen generieren (immer, auch bei Upscaling)
     for (const size of ALL_SIZES) {
       const png = await sharp(buffer)
         .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
       zip.file(`favicon-${size}x${size}.png`, png);
+      icoBuffers.push(png);
     }
 
+    // Apple nur bei includeApple
     if (includeApple) {
       for (const size of APPLE_SIZES) {
         const applePng = await sharp(buffer)
@@ -68,13 +108,12 @@ export async function generateFaviconZip(
       }
     }
 
-    const icoBuffers = await Promise.all(
-      ALL_SIZES.map(size => sharp(buffer).resize(size, size).png().toBuffer())
-    );
-    zip.file("favicon.ico", encodeIco(icoBuffers));
+    // .ico aus Standardgrößen
+    const icoStandard = icoBuffers.slice(0, ALL_SIZES.length);
+    zip.file("favicon.ico", encodeIco(icoStandard));
   }
 
-  // Optional: HTML Example
+  // ==================== HTML EXAMPLE ====================
   const htmlLines: string[] = [
     '<!DOCTYPE html>',
     '<html><head>',
@@ -82,8 +121,14 @@ export async function generateFaviconZip(
     '  <title>Favicon Test</title>',
     '  <link rel="icon" href="favicon.ico">',
     ...ALL_SIZES.map(s => `  <link rel="icon" type="image/png" sizes="${s}x${s}" href="favicon-${s}x${s}.png">`),
-    ...(includeApple ? APPLE_SIZES.map(s => `  <link rel="apple-touch-icon" sizes="${s}x${s}" href="apple-touch-icon-${s}x${s}.png">`) : [])
   ];
+
+  if (includeApple) {
+    htmlLines.push(
+      ...APPLE_SIZES.map(s => `  <link rel="apple-touch-icon" sizes="${s}x${s}" href="apple-touch-icon-${s}x${s}.png">`)
+    );
+  }
+
   htmlLines.push('</head><body><h1>favfav – your favicons are ready!</h1></body></html>');
   zip.file("favicon-example.html", htmlLines.join("\n"));
 

@@ -113,17 +113,17 @@ export default function Home() {
           </Label>
         </div>
 
-        {/* Simple Mode */}
+        {/* ==================== SIMPLE MODE ==================== */}
         {!isAdvanced && (
           <div className="space-y-5">
             <Label className="text-base font-medium">Upload image (will be scaled)</Label>
 
-            {/* Pro Tip – MD3 InfoTip */}
+            {/* Simple Mode InfoTip */}
             <InfoTip>
               <p className="font-medium">Pro tip:</p>
               <p>
-                Upload a <strong>512×512</strong> image for best results. 
-                We downscale perfectly — <em>never upscale</em>.
+                For the best quality, upload a <strong>512×512</strong> image. 
+                We downscale perfectly. <em>But don’t worry — any image works!</em>
               </p>
             </InfoTip>
 
@@ -151,13 +151,23 @@ export default function Home() {
           </div>
         )}
 
-        {/* Pro Mode */}
+        {/* ==================== PRO MODE ==================== */}
         {isAdvanced && (
           <Card>
             <CardHeader>
               <CardTitle>Upload per size</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+
+              {/* Pro Mode InfoTip */}
+              <InfoTip>
+                <p className="font-medium">Pixel-perfect control:</p>
+                <p>
+                  Your uploaded images are used <strong>1:1</strong> — no resizing. 
+                  Missing sizes are derived from the <strong>largest image</strong>.
+                </p>
+              </InfoTip>
+
               {/* Apple Checkbox */}
               <div className="flex items-center space-x-2 -ml-1">
                 <Checkbox
@@ -191,7 +201,7 @@ export default function Home() {
           </Card>
         )}
 
-        {/* Generate Button */}
+        {/* ==================== GENERATE BUTTON ==================== */}
         <Button
           onClick={handleGenerate}
           disabled={!hasFiles || loading}
@@ -201,7 +211,7 @@ export default function Home() {
           {loading ? "Generating..." : "Generate Favicons"}
         </Button>
 
-        {/* Progress */}
+        {/* ==================== PROGRESS ==================== */}
         {loading && (
           <div className="space-y-2">
             <Progress value={progress} />
@@ -211,7 +221,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Download */}
+        {/* ==================== DOWNLOAD ==================== */}
         {downloadUrl && (
           <a
             href={downloadUrl}
