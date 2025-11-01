@@ -1,7 +1,8 @@
 // src/app/page.tsx
 "use client";
 
-import { useState } from "react";
+// MODIFIZIERT: useEffect wurde entfernt, da es im Hook lebt
+import { useState } from "react"; 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -13,6 +14,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input"; 
 import { CustomFileInput } from "@/components/CustomFileInput";
 import { InfoTip } from "@/components/InfoTip";
+
+// Importiere unseren "Spielerei"-Hook
+import { useGenerativeTheme } from "@/lib/useGenerativeTheme";
 
 const ICO_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
@@ -33,6 +37,10 @@ export default function Home() {
   const [appName, setAppName] = useState("favfav");
   const [shortName, setShortName] = useState("favfav");
   const [themeColor, setThemeColor] = useState("#6366f1");
+
+  // KORREKTUR: Die Logik ist jetzt in einer Zeile
+  // Wir holen uns die Werte aus unserem Custom Hook
+  const { backgroundGradient, isClient } = useGenerativeTheme();
 
   const handleSimpleChange = (file: File | null) => {
     setSimpleFile(file);
@@ -105,8 +113,19 @@ export default function Home() {
   const displaySizes = Array.from(displaySizesSet).sort((a, b) => a - b);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      {/* MODIFIZIERT: Container breiter gemacht (max-w-3xl) */}
+    // KORREKTUR: Haupt-Div. Nutzt 'backgroundGradient' und 'isClient' vom Hook
+    <div 
+      style={
+        // Wende das 'style'-Attribut nur an, wenn der Client den Verlauf generiert hat
+        isClient && backgroundGradient 
+        ? { backgroundImage: backgroundGradient }
+        : {}
+      }
+      // Nutze die Fallback-Klasse, wenn der Client noch rendert ODER der Verlauf noch nicht da ist
+      className={`min-h-screen flex items-center justify-center p-4 ${
+        (!isClient || !backgroundGradient) ? 'bg-gradient-to-br from-blue-50 to-indigo-100' : ''
+      }`}
+    >
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-3xl w-full space-y-6">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
@@ -141,8 +160,7 @@ export default function Home() {
           </Label>
         </div>
 
-        {/* ==================== PLATFORM CHECKBOXES (MODIFIZIERT) ==================== */}
-        {/* MODIFIZIERT: Grid-Layout entfernt. Checkboxen und Inputs sind jetzt untereinander. */}
+        {/* ==================== PLATFORM CHECKBOXES ==================== */}
         
         {/* Block 1: Checkboxen */}
         <div className="space-y-3">
@@ -232,10 +250,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* MODIFIZIERT: PWA / Manifest Optionen (Konditional) - als eigener Block darunter */}
+        {/* PWA / Manifest Optionen (Konditional) */}
         {(includeAndroid || includeWindows) && (
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            {/* NEU: Grid für Inputs, damit sie nebeneinander liegen (auf md und größer) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* App Name */}
               <div className="space-y-1.5">
@@ -288,7 +305,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Theme Color (bleibt volle Breite) */}
+            {/* Theme Color */}
             <div className="space-y-1.5">
               <Label htmlFor="theme-color" className="flex items-center gap-1">
                 Theme Color
@@ -296,7 +313,7 @@ export default function Home() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button type="button" className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
-                        ?
+                      ?
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -323,7 +340,6 @@ export default function Home() {
             </div>
           </div>
         )}
-        {/* ENDE MODIFIKATION */}
 
 
         {/* ==================== SIMPLE MODE ==================== */}
