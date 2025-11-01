@@ -16,12 +16,14 @@ import { InfoTip } from "@/components/InfoTip";
 
 import { useGenerativeTheme } from "@/lib/useGenerativeTheme";
 
-// PREVIEW-INTERFACE ENTFERNT
-
 const ICO_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
+
+// Vercel-Limit-Validierung (4.5MB Limit, wir setzen 4MB)
+const MAX_FILE_SIZE_MB = 4;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 
 export default function Home() {
@@ -35,32 +37,30 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   
-  // PREVIEW-STATE ENTFERNT
-
   const [appName, setAppName] = useState("favfav");
   const [shortName, setShortName] = useState("favfav");
   const [themeColor, setThemeColor] = useState("#6366f1");
 
   const { backgroundGradient, isClient } = useGenerativeTheme();
 
+  // Die Validierungsfunktion ist jetzt in CustomFileInput.tsx
+
   const handleSimpleChange = (file: File | null) => {
+    // Validierung findet jetzt im Component statt
     setSimpleFile(file);
     setDownloadUrl(null);
-    // setPreviews([]); // ENTFERNT
   };
 
   const handleAdvancedChange = (size: number, file: File | null) => {
+    // Validierung findet jetzt im Component statt
     setAdvancedFiles((prev) => ({ ...prev, [size]: file }));
     setDownloadUrl(null);
-    // setPreviews([]); // ENTFERNT
   };
 
-  // handleGenerate zurückgesetzt auf Original-Logik
   const handleGenerate = async () => {
     setLoading(true);
-    setProgress(0); // Zurückgesetzt auf 0
+    setProgress(0); 
     setDownloadUrl(null);
-    // setPreviews([]); // ENTFERNT
 
     const formData = new FormData();
 
@@ -90,8 +90,6 @@ export default function Home() {
     formData.append("themeColor", themeColor);
     
     try {
-      // Progress-Simulation (wie in deinem Original-Code)
-      // NOTE: Da 'fetch' nicht streamt, simulieren wir einfach.
       let progressInterval: NodeJS.Timeout | null = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 90) {
@@ -108,23 +106,24 @@ export default function Home() {
         body: formData,
       });
 
-      if (progressInterval) clearInterval(progressInterval); // Stoppe die Progress-Simulation
+      if (progressInterval) clearInterval(progressInterval);
 
       if (!res.ok) {
-        throw new Error("Generation failed"); 
+        if (res.status === 413) {
+          throw new Error(`File is too large (Server Error). Max size is ${MAX_FILE_SIZE_MB} MB.`);
+        }
+        throw new Error("Generation failed (Server Error)"); 
       }
 
-      // MODIFIZIERT: Erwarte 'blob()' statt 'json()'
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       
       setDownloadUrl(url);
-      // setPreviews([]); // ENTFERNT
       setProgress(100);
 
     } catch (err) {
       console.error("Fetch generation error:", err);
-      alert("Something went wrong while generating favicons.");
+      alert(err instanceof Error ? err.message : "Something went wrong.");
       setProgress(0);
     } finally {
       setLoading(false);
@@ -153,7 +152,7 @@ export default function Home() {
     >
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-3xl w-full space-y-6">
         
-        {/* ... (Header, Toggle, Checkboxes, PWA Options bleiben gleich) ... */}
+        {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">.favfav</h1>
           <p className="text-lg text-indigo-600 font-medium mt-1">your favorite .ico generator</p>
@@ -170,6 +169,8 @@ export default function Home() {
                 )}
           </p>
         </div>
+
+        {/* Pro Mode Toggle */}
         <div className="flex items-center justify-center space-x-3">
           <Switch
             id="advanced-mode"
@@ -178,6 +179,8 @@ export default function Home() {
           />
           <Label htmlFor="advanced-mode" className="cursor-pointer font-medium">Pro Mode</Label>
         </div>
+        
+        {/* Checkboxes */}
         <div className="space-y-3">
           {/* Apple */}
           <div className="flex items-center space-x-2">
@@ -262,6 +265,8 @@ export default function Home() {
             </Label>
           </div>
         </div>
+        
+        {/* PWA Options */}
         {(includeAndroid || includeWindows) && (
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -350,11 +355,17 @@ export default function Home() {
           </div>
         )}
 
-        {/* ==================== SIMPLE MODE ==================== */}
+        {/* ==================== SIMPLE MODE (MODIFIZIERT) ==================== */}
         {!isAdvanced && (
-          <div className="space-y-4">
-            <div className="space-y-3">
-              <Label className="text-base font-medium">Upload image (will be scaled)</Label>
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload image</CardTitle>
+              {/* NEU: Einheitlicher Info-Text */}
+              <p className="text-sm text-gray-600 pt-1">
+                Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
               <InfoTip>
                 <p className="font-medium">Pro tip:</p>
                 <p>
@@ -362,49 +373,36 @@ export default function Home() {
                   We downscale perfectly. <em>But don’t worry — any image works!</em>
                 </p>
               </InfoTip>
-            </div>
-            <div className="flex gap-3 items-center">
+              {/* MODIFIZIERT: Volle Breite */}
               <CustomFileInput
                 id="simple-image"
                 label=""
                 file={simpleFile}
                 onChange={handleSimpleChange}
-                className="flex-1"
+                maxSizeInBytes={MAX_FILE_SIZE_BYTES}
               />
+              {/* MODIFIZIERT: Volle Breite */}
               <Button
                 onClick={handleGenerate}
                 disabled={!simpleFile || loading}
                 size="lg"
-                className="h-12 w-48"
+                className="h-12 w-full"
               >
                 {loading ? "Generating..." : "Generate Favicons"}
               </Button>
-            </div>
-            
-            {/* MODIFIZIERT: Download/Loading zurück in den Simple-Block */}
-            {loading && (
-              <div className="space-y-2">
-                <Progress value={progress} />
-                <p className="text-sm text-center text-gray-600">Processing image...</p>
-              </div>
-            )}
-            {downloadUrl && (
-              <a
-                href={downloadUrl}
-                download="favicons.zip"
-                className="block text-center bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-medium"
-              >
-                Download ZIP
-              </a>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* ==================== PRO MODE ==================== */}
+        {/* ==================== PRO MODE (MODIFIZIERT) ==================== */}
         {isAdvanced && (
           <Card>
             <CardHeader>
               <CardTitle>Upload per size</CardTitle>
+              {/* NEU: Einheitlicher Info-Text */}
+              <p className="text-sm text-gray-600 pt-1">
+                Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB per file.
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
               <InfoTip>
@@ -423,6 +421,7 @@ export default function Home() {
                       label={`${size}×${size}`}
                       file={advancedFiles[size] || null}
                       onChange={(file) => handleAdvancedChange(size, file)}
+                      maxSizeInBytes={MAX_FILE_SIZE_BYTES}
                     />
                   ))}
                 </div>
@@ -435,28 +434,28 @@ export default function Home() {
               >
                 {loading ? "Generating..." : "Generate Favicons"}
               </Button>
-
-              {/* MODIFIZIERT: Download/Loading zurück in den Pro-Block */}
-              {loading && (
-                <div className="space-y-2">
-                  <Progress value={progress} />
-                  <p className="text-sm text-center text-gray-600">Processing multiple images...</p>
-                </div>
-              )}
-              {downloadUrl && (
-                <a
-                  href={downloadUrl}
-                  download="favicons.zip"
-                  className="block text-center bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-medium"
-                >
-                  Download ZIP
-                </a>
-              )}
             </CardContent>
           </Card>
         )}
         
-        {/* PREVIEW-BEREICH KOMPLETT ENTFERNT */}
+        {/* ==================== RESULTS (Herausgezogen) ==================== */}
+        {loading && (
+          <div className="space-y-2">
+            <Progress value={progress} />
+            <p className="text-sm text-center text-gray-600">
+              {isAdvanced ? "Processing multiple images..." : "Processing image..."}
+            </p>
+          </div>
+        )}
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            download="favfavicon.zip" 
+            className="block text-center bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-medium"
+          >
+            Download ZIP
+          </a>
+        )}
 
         {/* Footer */}
         <p className="text-xs text-center text-gray-500">

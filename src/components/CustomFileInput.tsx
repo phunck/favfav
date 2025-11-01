@@ -8,7 +8,11 @@ interface CustomFileInputProps {
   file: File | null;
   onChange: (file: File | null) => void;
   className?: string;
+  maxSizeInBytes?: number; // NEU: Prop für die Größenprüfung
 }
+
+// NEU: Definiert, welche Typen der Dialog anzeigt
+const ACCEPTED_FILE_TYPES = "image/png, image/jpeg, image/gif, image/webp";
 
 export function CustomFileInput({
   id,
@@ -16,7 +20,28 @@ export function CustomFileInput({
   file,
   onChange,
   className = "",
+  maxSizeInBytes, // NEU
 }: CustomFileInputProps) {
+  // NEU: Handler, der die Größe prüft, BEVOR er 'onChange' aufruft
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+
+    if (selectedFile && maxSizeInBytes) {
+      if (selectedFile.size > maxSizeInBytes) {
+        const maxSizeMB = (maxSizeInBytes / 1024 / 1024).toFixed(1);
+        alert(
+          `File is too large (${(selectedFile.size / 1024 / 1024).toFixed(
+            1
+          )} MB). \nMax file size is ${maxSizeMB} MB.`
+        );
+        e.target.value = ""; // Wichtig: Setzt das Input-Feld zurück
+        onChange(null); // Meldet "keine Datei" an das Parent-Element
+        return;
+      }
+    }
+    onChange(selectedFile); // Datei ist gültig
+  };
+
   return (
     <div className={`space-y-2 ${className}`}>
       {label && <Label htmlFor={id}>{label}</Label>}
@@ -34,9 +59,9 @@ export function CustomFileInput({
           <input
             id={id}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_FILE_TYPES} // MODIFIZIERT: Spezifische Typen
             className="hidden"
-            onChange={(e) => onChange(e.target.files?.[0] || null)}
+            onChange={handleFileChange} // MODIFIZIERT: Nutzt den neuen Handler
           />
         </label>
       </div>
