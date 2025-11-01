@@ -8,17 +8,22 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CustomFileInput } from "@/components/CustomFileInput";
 import { InfoTip } from "@/components/InfoTip";
 
-const ICO_SIZES = [16, 32, 48, 64, 128, 256, 512] as const;
+const ICO_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
+const ANDROID_SIZES = [192, 196, 512] as const;
+const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
 export default function Home() {
   const [simpleFile, setSimpleFile] = useState<File | null>(null);
   const [advancedFiles, setAdvancedFiles] = useState<Record<number, File | null>>({});
   const [isAdvanced, setIsAdvanced] = useState(false);
   const [includeApple, setIncludeApple] = useState(false);
+  const [includeAndroid, setIncludeAndroid] = useState(false);
+  const [includeWindows, setIncludeWindows] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -55,6 +60,8 @@ export default function Home() {
     }
 
     formData.append("includeApple", includeApple.toString());
+    formData.append("includeAndroid", includeAndroid.toString());
+    formData.append("includeWindows", includeWindows.toString());
 
     try {
       const res = await fetch("/api/generate-favicon", {
@@ -81,7 +88,9 @@ export default function Home() {
 
   const displaySizes = [
     ...ICO_SIZES,
-    ...(isAdvanced && includeApple ? APPLE_SIZES : [])
+    ...(isAdvanced && includeApple ? APPLE_SIZES : []),
+    ...(isAdvanced && includeAndroid ? ANDROID_SIZES.filter(s => s !== 192 && s !== 512) : []),
+    ...(isAdvanced && includeWindows ? WINDOWS_SIZES.filter(s => s !== 144) : [])
   ].sort((a, b) => a - b);
 
   return (
@@ -113,12 +122,95 @@ export default function Home() {
           </Label>
         </div>
 
+        {/* ==================== PLATFORM CHECKBOXES ==================== */}
+        <div className="space-y-3">
+          {/* Apple */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="apple"
+                checked={includeApple}
+                onCheckedChange={(checked) => setIncludeApple(checked === true)}
+              />
+              <Label htmlFor="apple" className="cursor-pointer text-sm font-normal text-gray-700">
+                Apple Touch Icons{" "}
+                <span className="text-indigo-600 font-medium text-xs">
+                  (for the special child)
+                </span>
+              </Label>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>iPhone & iPad homescreen icons (120–180px)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Android / PWA (inkl. Legacy) */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="android"
+                checked={includeAndroid}
+                onCheckedChange={(checked) => setIncludeAndroid(checked === true)}
+              />
+              <Label htmlFor="android" className="cursor-pointer text-sm font-normal text-gray-700">
+                Android / PWA
+              </Label>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Chrome & Android homescreen (192×192, 196×196 legacy, 512×512)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Windows Tiles */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="windows"
+                checked={includeWindows}
+                onCheckedChange={(checked) => setIncludeWindows(checked === true)}
+              />
+              <Label htmlFor="windows" className="cursor-pointer text-sm font-normal text-gray-700">
+                Windows Tiles
+              </Label>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Windows Start menu & taskbar tiles (70×70 to 310×310)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+
         {/* ==================== SIMPLE MODE ==================== */}
         {!isAdvanced && (
           <div className="space-y-5">
             <Label className="text-base font-medium">Upload image (will be scaled)</Label>
 
-            {/* Simple Mode InfoTip */}
             <InfoTip>
               <p className="font-medium">Pro tip:</p>
               <p>
@@ -126,21 +218,6 @@ export default function Home() {
                 We downscale perfectly. <em>But don’t worry — any image works!</em>
               </p>
             </InfoTip>
-
-            {/* Apple Checkbox */}
-            <div className="flex items-center space-x-2 -ml-1">
-              <Checkbox
-                id="include-apple"
-                checked={includeApple}
-                onCheckedChange={(checked) => setIncludeApple(checked as boolean)}
-              />
-              <Label htmlFor="include-apple" className="cursor-pointer text-sm font-normal text-gray-700">
-                Include Apple Touch Icons{" "}
-                <span className="text-indigo-600 font-medium text-xs">
-                  (for the special child)
-                </span>
-              </Label>
-            </div>
 
             <CustomFileInput
               id="simple-image"
@@ -158,8 +235,6 @@ export default function Home() {
               <CardTitle>Upload per size</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-
-              {/* Pro Mode InfoTip */}
               <InfoTip>
                 <p className="font-medium">Pixel-perfect control:</p>
                 <p>
@@ -168,22 +243,6 @@ export default function Home() {
                 </p>
               </InfoTip>
 
-              {/* Apple Checkbox */}
-              <div className="flex items-center space-x-2 -ml-1">
-                <Checkbox
-                  id="include-apple"
-                  checked={includeApple}
-                  onCheckedChange={(checked) => setIncludeApple(checked as boolean)}
-                />
-                <Label htmlFor="include-apple" className="cursor-pointer text-sm font-normal text-gray-700">
-                  Include Apple Touch Icons{" "}
-                  <span className="text-indigo-600 font-medium text-xs">
-                    (for the special child)
-                  </span>
-                </Label>
-              </div>
-
-              {/* Dynamische Größenliste */}
               <ScrollArea className="h-96 pr-4">
                 <div className="space-y-4">
                   {displaySizes.map((size) => (

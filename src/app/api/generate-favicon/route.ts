@@ -7,6 +7,8 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const mode = formData.get("mode") as "simple" | "advanced";
     const includeApple = formData.get("includeApple") === "true";
+    const includeAndroid = formData.get("includeAndroid") === "true";
+    const includeWindows = formData.get("includeWindows") === "true";
 
     let zipBuffer: Buffer;
 
@@ -19,11 +21,11 @@ export async function POST(req: NextRequest) {
           if (file) advancedImages[size] = file;
         }
       }
-      zipBuffer = await generateFaviconZip("advanced", undefined, advancedImages, includeApple);
+      zipBuffer = await generateFaviconZip("advanced", undefined, advancedImages, includeApple, includeAndroid, includeWindows);
     } else {
       const image = formData.get("image") as File;
       if (!image) return new Response("No image uploaded", { status: 400 });
-      zipBuffer = await generateFaviconZip("simple", image, undefined, includeApple);
+      zipBuffer = await generateFaviconZip("simple", image, undefined, includeApple, includeAndroid, includeWindows);
     }
 
     return new Response(zipBuffer.buffer as BodyInit, {
