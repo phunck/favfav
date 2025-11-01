@@ -1,46 +1,44 @@
 // src/components/CustomFileInput.tsx
+import { Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Upload, X } from "lucide-react";
-import { useRef } from "react";
 
 interface CustomFileInputProps {
   id: string;
   label: string;
   file: File | null;
   onChange: (file: File | null) => void;
+  className?: string;
 }
 
-export function CustomFileInput({ id, label, file, onChange }: CustomFileInputProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleClick = () => inputRef.current?.click();
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.files?.[0] || null);
-  };
-  const handleRemove = () => {
-    onChange(null);
-    if (inputRef.current) inputRef.current.value = "";
-  };
-
+export function CustomFileInput({
+  id,
+  label,
+  file,
+  onChange,
+  className = "",
+}: CustomFileInputProps) {
   return (
-    <div className="flex items-center space-x-3">
-      <div className="w-16 text-sm font-medium text-right">{label}</div>
-      <div className="flex-1">
-        <input ref={inputRef} id={id} type="file" accept="image/*" onChange={handleChange} className="hidden" />
-        {!file ? (
-          <Button type="button" variant="outline" onClick={handleClick} className="w-full justify-start text-left font-normal">
-            <Upload className="w-4 h-4 mr-2" />
-            Choose file
-          </Button>
-        ) : (
-          <div className="flex items-center justify-between bg-gray-50 border rounded-md px-3 py-2">
-            <span className="text-sm truncate max-w-[180px]">{file.name}</span>
-            <button onClick={handleRemove} className="text-red-600 hover:text-red-800">
-              <X className="w-4 h-4" />
-            </button>
+    <div className={`space-y-2 ${className}`}>
+      {label && <Label htmlFor={id}>{label}</Label>}
+      <div className="flex items-center justify-center w-full">
+        <label
+          htmlFor={id}
+          className="flex flex-col items-center justify-center w-full h-12 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition"
+        >
+          <div className="flex items-center justify-center pt-1">
+            <Upload className="w-5 h-5 text-gray-500 mr-2" />
+            <p className="text-sm text-gray-600 truncate max-w-[180px]">
+              {file ? file.name : "Choose file"}
+            </p>
           </div>
-        )}
+          <input
+            id={id}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onChange(e.target.files?.[0] || null)}
+          />
+        </label>
       </div>
     </div>
   );

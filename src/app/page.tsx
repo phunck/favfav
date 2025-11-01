@@ -125,84 +125,88 @@ export default function Home() {
         {/* ==================== PLATFORM CHECKBOXES ==================== */}
         <div className="space-y-3">
           {/* Apple */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="apple"
-                checked={includeApple}
-                onCheckedChange={(checked) => setIncludeApple(checked === true)}
-              />
-              <Label htmlFor="apple" className="cursor-pointer text-sm font-normal text-gray-700">
-                Apple Touch Icons{" "}
-                <span className="text-indigo-600 font-medium text-xs">
-                  (for the special child)
-                </span>
-              </Label>
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
-                    ?
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>iPhone & iPad homescreen icons (120–180px)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="apple"
+              checked={includeApple}
+              onCheckedChange={(checked) => setIncludeApple(checked === true)}
+            />
+            <Label htmlFor="apple" className="cursor-pointer text-sm font-normal text-gray-700 flex items-center gap-1">
+              Apple Touch Icons{" "}
+              <span className="text-indigo-600 font-medium text-xs">(for the special child)</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium">iPhone & iPad Homescreen</p>
+                    <p className="text-sm mt-1">
+                      Generates <code>120×120</code>, <code>152×152</code>, <code>167×167</code>, and <code>180×180</code> icons.
+                      Used when users add your site to their home screen on iOS.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
           </div>
 
-          {/* Android / PWA (inkl. Legacy) */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="android"
-                checked={includeAndroid}
-                onCheckedChange={(checked) => setIncludeAndroid(checked === true)}
-              />
-              <Label htmlFor="android" className="cursor-pointer text-sm font-normal text-gray-700">
-                Android / PWA
-              </Label>
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
-                    ?
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Chrome & Android homescreen (192×192, 196×196 legacy, 512×512)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {/* Android / PWA */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="android"
+              checked={includeAndroid}
+              onCheckedChange={(checked) => setIncludeAndroid(checked === true)}
+            />
+            <Label htmlFor="android" className="cursor-pointer text-sm font-normal text-gray-700 flex items-center gap-1">
+              Android / PWA
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium">Android & Progressive Web Apps</p>
+                    <p className="text-sm mt-1">
+                      Generates <code>192×192</code> (standard), <code>196×196</code> (legacy support), and <code>512×512</code> (high-res).
+                      Required for Chrome, Android homescreen, and <code>manifest.json</code> in PWAs.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
           </div>
 
           {/* Windows Tiles */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="windows"
-                checked={includeWindows}
-                onCheckedChange={(checked) => setIncludeWindows(checked === true)}
-              />
-              <Label htmlFor="windows" className="cursor-pointer text-sm font-normal text-gray-700">
-                Windows Tiles
-              </Label>
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
-                    ?
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Windows Start menu & taskbar tiles (70×70 to 310×310)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="windows"
+              checked={includeWindows}
+              onCheckedChange={(checked) => setIncludeWindows(checked === true)}
+            />
+            <Label htmlFor="windows" className="cursor-pointer text-sm font-normal text-gray-700 flex items-center gap-1">
+              Windows Tiles
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium">Windows Start Menu & Taskbar</p>
+                    <p className="text-sm mt-1">
+                      Generates <code>70×70</code>, <code>144×144</code>, <code>150×150</code>, and <code>310×310</code> tiles.
+                      Used in Windows 8/10/11 for pinned sites. Includes <code>browserconfig.xml</code>.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
           </div>
         </div>
 
