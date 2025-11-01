@@ -1,8 +1,7 @@
 // src/app/page.tsx
 "use client";
 
-// MODIFIZIERT: useEffect wurde entfernt, da es im Hook lebt
-import { useState } from "react"; 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -15,13 +14,15 @@ import { Input } from "@/components/ui/input";
 import { CustomFileInput } from "@/components/CustomFileInput";
 import { InfoTip } from "@/components/InfoTip";
 
-// Importiere unseren "Spielerei"-Hook
 import { useGenerativeTheme } from "@/lib/useGenerativeTheme";
+
+// PREVIEW-INTERFACE ENTFERNT
 
 const ICO_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
+
 
 export default function Home() {
   const [simpleFile, setSimpleFile] = useState<File | null>(null);
@@ -33,28 +34,33 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  
+  // PREVIEW-STATE ENTFERNT
 
   const [appName, setAppName] = useState("favfav");
   const [shortName, setShortName] = useState("favfav");
   const [themeColor, setThemeColor] = useState("#6366f1");
 
-  // KORREKTUR: Die Logik ist jetzt in einer Zeile
-  // Wir holen uns die Werte aus unserem Custom Hook
   const { backgroundGradient, isClient } = useGenerativeTheme();
 
   const handleSimpleChange = (file: File | null) => {
     setSimpleFile(file);
     setDownloadUrl(null);
+    // setPreviews([]); // ENTFERNT
   };
 
   const handleAdvancedChange = (size: number, file: File | null) => {
     setAdvancedFiles((prev) => ({ ...prev, [size]: file }));
     setDownloadUrl(null);
+    // setPreviews([]); // ENTFERNT
   };
 
+  // handleGenerate zurückgesetzt auf Original-Logik
   const handleGenerate = async () => {
     setLoading(true);
-    setProgress(0);
+    setProgress(0); // Zurückgesetzt auf 0
+    setDownloadUrl(null);
+    // setPreviews([]); // ENTFERNT
 
     const formData = new FormData();
 
@@ -70,31 +76,56 @@ export default function Home() {
       if (simpleFile) {
         formData.append("image", simpleFile);
         formData.append("mode", "simple");
+      } else {
+        setLoading(false);
+        return; 
       }
     }
-
+    
     formData.append("includeApple", includeApple.toString());
     formData.append("includeAndroid", includeAndroid.toString());
     formData.append("includeWindows", includeWindows.toString());
-
     formData.append("appName", appName);
     formData.append("shortName", shortName);
     formData.append("themeColor", themeColor);
-
+    
     try {
+      // Progress-Simulation (wie in deinem Original-Code)
+      // NOTE: Da 'fetch' nicht streamt, simulieren wir einfach.
+      let progressInterval: NodeJS.Timeout | null = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) {
+            if (progressInterval) clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+
       const res = await fetch("/api/generate-favicon", {
         method: "POST",
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Generation failed");
+      if (progressInterval) clearInterval(progressInterval); // Stoppe die Progress-Simulation
 
+      if (!res.ok) {
+        throw new Error("Generation failed"); 
+      }
+
+      // MODIFIZIERT: Erwarte 'blob()' statt 'json()'
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
+      
       setDownloadUrl(url);
+      // setPreviews([]); // ENTFERNT
       setProgress(100);
+
     } catch (err) {
+      console.error("Fetch generation error:", err);
       alert("Something went wrong while generating favicons.");
+      setProgress(0);
     } finally {
       setLoading(false);
     }
@@ -112,28 +143,20 @@ export default function Home() {
   }
   const displaySizes = Array.from(displaySizesSet).sort((a, b) => a - b);
 
+
   return (
-    // KORREKTUR: Haupt-Div. Nutzt 'backgroundGradient' und 'isClient' vom Hook
     <div 
-      style={
-        // Wende das 'style'-Attribut nur an, wenn der Client den Verlauf generiert hat
-        isClient && backgroundGradient 
-        ? { backgroundImage: backgroundGradient }
-        : {}
-      }
-      // Nutze die Fallback-Klasse, wenn der Client noch rendert ODER der Verlauf noch nicht da ist
+      style={isClient && backgroundGradient ? { backgroundImage: backgroundGradient } : {}}
       className={`min-h-screen flex items-center justify-center p-4 ${
         (!isClient || !backgroundGradient) ? 'bg-gradient-to-br from-blue-50 to-indigo-100' : ''
       }`}
     >
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-3xl w-full space-y-6">
+        
+        {/* ... (Header, Toggle, Checkboxes, PWA Options bleiben gleich) ... */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
-            .favfav
-          </h1>
-          <p className="text-lg text-indigo-600 font-medium mt-1">
-            your favorite .ico generator
-          </p>
+          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">.favfav</h1>
+          <p className="text-lg text-indigo-600 font-medium mt-1">your favorite .ico generator</p>
           <p className="text-gray-600 mt-3 text-sm leading-relaxed max-w-xl mx-auto">
             {isAdvanced
               ? "Pro Mode: Finally! Upload pixel-perfect images for each size — no scaling, no quality loss. Generate the perfect .ico with full control."
@@ -147,22 +170,14 @@ export default function Home() {
                 )}
           </p>
         </div>
-
-        {/* Toggle: Pro Mode */}
         <div className="flex items-center justify-center space-x-3">
           <Switch
             id="advanced-mode"
             checked={isAdvanced}
             onCheckedChange={setIsAdvanced}
           />
-          <Label htmlFor="advanced-mode" className="cursor-pointer font-medium">
-            Pro Mode
-          </Label>
+          <Label htmlFor="advanced-mode" className="cursor-pointer font-medium">Pro Mode</Label>
         </div>
-
-        {/* ==================== PLATFORM CHECKBOXES ==================== */}
-        
-        {/* Block 1: Checkboxen */}
         <div className="space-y-3">
           {/* Apple */}
           <div className="flex items-center space-x-2">
@@ -192,7 +207,6 @@ export default function Home() {
               </TooltipProvider>
             </Label>
           </div>
-
           {/* Android / PWA */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -220,7 +234,6 @@ export default function Home() {
               </TooltipProvider>
             </Label>
           </div>
-
           {/* Windows Tiles */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -249,8 +262,6 @@ export default function Home() {
             </Label>
           </div>
         </div>
-
-        {/* PWA / Manifest Optionen (Konditional) */}
         {(includeAndroid || includeWindows) && (
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -278,7 +289,6 @@ export default function Home() {
                   placeholder="My Awesome App"
                 />
               </div>
-
               {/* Short Name */}
               <div className="space-y-1.5">
                 <Label htmlFor="short-name" className="flex items-center gap-1">
@@ -304,7 +314,6 @@ export default function Home() {
                 />
               </div>
             </div>
-
             {/* Theme Color */}
             <div className="space-y-1.5">
               <Label htmlFor="theme-color" className="flex items-center gap-1">
@@ -313,7 +322,7 @@ export default function Home() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button type="button" className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
-                      ?
+                        ?
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -341,7 +350,6 @@ export default function Home() {
           </div>
         )}
 
-
         {/* ==================== SIMPLE MODE ==================== */}
         {!isAdvanced && (
           <div className="space-y-4">
@@ -355,7 +363,6 @@ export default function Home() {
                 </p>
               </InfoTip>
             </div>
-
             <div className="flex gap-3 items-center">
               <CustomFileInput
                 id="simple-image"
@@ -373,14 +380,14 @@ export default function Home() {
                 {loading ? "Generating..." : "Generate Favicons"}
               </Button>
             </div>
-
+            
+            {/* MODIFIZIERT: Download/Loading zurück in den Simple-Block */}
             {loading && (
               <div className="space-y-2">
                 <Progress value={progress} />
                 <p className="text-sm text-center text-gray-600">Processing image...</p>
               </div>
             )}
-
             {downloadUrl && (
               <a
                 href={downloadUrl}
@@ -407,7 +414,6 @@ export default function Home() {
                   Missing sizes are derived from the <strong>largest image</strong>.
                 </p>
               </InfoTip>
-
               <ScrollArea className="h-96 pr-4">
                 <div className="space-y-4">
                   {displaySizes.map((size) => (
@@ -421,7 +427,6 @@ export default function Home() {
                   ))}
                 </div>
               </ScrollArea>
-
               <Button
                 onClick={handleGenerate}
                 disabled={!hasFiles || loading}
@@ -431,13 +436,13 @@ export default function Home() {
                 {loading ? "Generating..." : "Generate Favicons"}
               </Button>
 
+              {/* MODIFIZIERT: Download/Loading zurück in den Pro-Block */}
               {loading && (
                 <div className="space-y-2">
                   <Progress value={progress} />
                   <p className="text-sm text-center text-gray-600">Processing multiple images...</p>
                 </div>
               )}
-
               {downloadUrl && (
                 <a
                   href={downloadUrl}
@@ -450,7 +455,10 @@ export default function Home() {
             </CardContent>
           </Card>
         )}
+        
+        {/* PREVIEW-BEREICH KOMPLETT ENTFERNT */}
 
+        {/* Footer */}
         <p className="text-xs text-center text-gray-500">
           MIT License © 2025 phunck
         </p>

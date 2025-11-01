@@ -10,15 +10,15 @@ export async function POST(req: NextRequest) {
     const includeAndroid = formData.get("includeAndroid") === "true";
     const includeWindows = formData.get("includeWindows") === "true";
 
-    // NEU: PWA-Daten auslesen (mit Fallbacks, falls sie fehlen)
     const appName = (formData.get("appName") as string) || "favfav";
     const shortName = (formData.get("shortName") as string) || "favfav";
     const themeColor = (formData.get("themeColor") as string) || "#6366f1";
 
-    let zipBuffer: Buffer;
+    let simpleImage: File | undefined;
+    let advancedImages: Record<number, File> | undefined;
 
     if (mode === "advanced") {
-      const advancedImages: Record<number, File> = {};
+      advancedImages = {};
       for (const key of formData.keys()) {
         if (key.startsWith("size-")) {
           const size = parseInt(key.replace("size-", ""), 10);
@@ -26,39 +26,31 @@ export async function POST(req: NextRequest) {
           if (file) advancedImages[size] = file;
         }
       }
-      zipBuffer = await generateFaviconZip(
-        "advanced", 
-        undefined, 
-        advancedImages, 
-        includeApple, 
-        includeAndroid, 
-        includeWindows,
-        appName,
-        shortName,
-        themeColor
-      );
     } else {
-      const image = formData.get("image") as File;
-      if (!image) return new Response("No image uploaded", { status: 400 });
-      zipBuffer = await generateFaviconZip(
-        "simple", 
-        image, 
-        undefined, 
-        includeApple, 
-        includeAndroid, 
-        includeWindows,
-        appName,
-        shortName,
-        themeColor
-      );
+      simpleImage = formData.get("image") as File;
+      if (!simpleImage) return new Response("No image uploaded", { status: 400 });
     }
+
+    const zipBuffer = await generateFaviconZip(
+      mode,
+      simpleImage,
+      advancedImages,
+      includeApple,
+      includeAndroid,
+      includeWindows,
+      appName,
+      shortName,
+      themeColor
+    );
 
     return new Response(zipBuffer.buffer as BodyInit, {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": 'attachment; filename="favicons.zip"',
+        // MODIFIZIERT: Dateiname geändert
+        "Content-Disposition": 'attachment; filename="favfavicons.zip"',
       },
     });
+
   } catch (error) {
     console.error("Favicon generation error:", error);
     return new Response("Internal Server Error", { status: 500 });

@@ -1,12 +1,27 @@
 // src/lib/favicon-generator.ts
 import sharp from "sharp";
-import { encodeIco } from "ico-endec";
+import pngToIco from "png-to-ico";
 import JSZip from "jszip";
+
+// PREVIEW-TYP ENTFERNT
 
 const ALL_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
+
+// NEU: Ordner-Pfade (mit Schrägstrich am Ende)
+const appleDir = "apple/";
+const androidDir = "android/";
+const windowsDir = "windows/";
+
+const resizeIfNeeded = async (buffer: Buffer, targetSize: number, sourceSize?: number): Promise<Buffer> => {
+  if (sourceSize === targetSize) return buffer;
+  return await sharp(buffer, { animated: false })
+    .resize(targetSize, targetSize, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+};
 
 export async function generateFaviconZip(
   mode: "simple" | "advanced",
@@ -15,7 +30,6 @@ export async function generateFaviconZip(
   includeApple: boolean = false,
   includeAndroid: boolean = false,
   includeWindows: boolean = false,
-  // NEU: PWA-Parameter mit Defaults
   appName: string = "favfav",
   shortName: string = "favfav",
   themeColor: string = "#6366f1"
@@ -23,27 +37,22 @@ export async function generateFaviconZip(
   const zip = new JSZip();
   const icoBuffers: Buffer[] = [];
 
-  const resizeIfNeeded = async (buffer: Buffer, targetSize: number, sourceSize?: number): Promise<Buffer> => {
-    if (sourceSize === targetSize) return buffer;
-    return await sharp(buffer)
-      .resize(targetSize, targetSize, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toBuffer();
-  };
-
   // ==================== PRO MODE ====================
   if (mode === "advanced" && advancedImages) {
     const uploaded = Object.entries(advancedImages)
       .map(([sizeStr, file]) => ({ size: parseInt(sizeStr, 10), file }))
       .filter((x): x is { size: number; file: File } => x.file !== null);
 
+    if (uploaded.length === 0) {
+        throw new Error("No images provided in Pro Mode.");
+    }
+    
     const largest = uploaded.reduce((max, cur) => (cur.size > max.size ? cur : max), uploaded[0]);
 
     const targetSizesSet = new Set<number>(ALL_SIZES);
     if (includeApple) APPLE_SIZES.forEach(s => targetSizesSet.add(s));
     if (includeAndroid) ANDROID_SIZES.forEach(s => targetSizesSet.add(s));
     if (includeWindows) WINDOWS_SIZES.forEach(s => targetSizesSet.add(s));
-
     const targetSizes = Array.from(targetSizesSet);
 
     for (const targetSize of targetSizes) {
@@ -54,152 +63,135 @@ export async function generateFaviconZip(
       if (uploadedForSize) {
         sourceBuffer = Buffer.from(await uploadedForSize.file.arrayBuffer());
         sourceSize = uploadedForSize.size;
-      } else if (largest && largest.size >= targetSize) {
-        sourceBuffer = Buffer.from(await largest.file.arrayBuffer());
-        sourceSize = largest.size;
-      } else if (largest) {
-        sourceBuffer = Buffer.from(await largest.file.arrayBuffer());
-        sourceSize = largest.size;
       } else {
-        continue;
-      }
+        sourceBuffer = Buffer.from(await largest.file.arrayBuffer());
+        sourceSize = largest.size;
+      } 
 
       const png = await resizeIfNeeded(sourceBuffer, targetSize, sourceSize);
       let filename = "";
 
-      if (includeApple && APPLE_SIZES.includes(targetSize as any)) {
-        filename = `apple-touch-icon-${targetSize}x${targetSize}.png`;
-      } else if (includeAndroid && ANDROID_SIZES.includes(targetSize as any)) {
-        filename = `android-chrome-${targetSize}x${targetSize}.png`;
-      } else if (includeWindows && WINDOWS_SIZES.includes(targetSize as any)) {
-        filename = `mstile-${targetSize}x${targetSize}.png`;
-      }
-      else if (ALL_SIZES.includes(targetSize as any)) {
-        filename = `favicon-${targetSize}x${targetSize}.png`;
-      } else {
-        continue;
-      }
+      if (includeApple && APPLE_SIZES.includes(targetSize as any)) filename = `${appleDir}apple-touch-icon-${targetSize}x${targetSize}.png`;
+      else if (includeAndroid && ANDROID_SIZES.includes(targetSize as any)) filename = `${androidDir}android-chrome-${targetSize}x${targetSize}.png`;
+      else if (includeWindows && WINDOWS_SIZES.includes(targetSize as any)) filename = `${windowsDir}mstile-${targetSize}x${targetSize}.png`;
+      else if (ALL_SIZES.includes(targetSize as any)) filename = `favicon-${targetSize}x${targetSize}.png`;
+      else continue;
 
       zip.file(filename, png);
-
+      
       if (ALL_SIZES.includes(targetSize as any) && targetSize <= 256) {
         icoBuffers.push(png);
       }
-    }
-
-    if (icoBuffers.length > 0) {
-      zip.file("favicon.ico", encodeIco(icoBuffers));
     }
   }
 
   // ==================== SIMPLE MODE ====================
   else if (mode === "simple" && simpleImage) {
     const buffer = Buffer.from(await simpleImage.arrayBuffer());
+    const metadata = await sharp(buffer, { animated: false }).metadata();
+    const originalSize = metadata.width; 
 
     for (const size of ALL_SIZES) {
-      const png = await sharp(buffer)
-        .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer();
-      zip.file(`favicon-${size}x${size}.png`, png);
+      const png = await resizeIfNeeded(buffer, size, originalSize);
+      const filename = `favicon-${size}x${size}.png`;
+      zip.file(filename, png);
       if (size <= 256) icoBuffers.push(png);
     }
 
     if (includeApple) {
       for (const size of APPLE_SIZES) {
-        const png = await sharp(buffer)
-          .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer();
-        zip.file(`apple-touch-icon-${size}x${size}.png`, png);
+        const png = await resizeIfNeeded(buffer, size, originalSize);
+        const filename = `${appleDir}apple-touch-icon-${size}x${size}.png`;
+        zip.file(filename, png);
       }
     }
 
     if (includeAndroid) {
       for (const size of ANDROID_SIZES) {
-        const png = await sharp(buffer)
-          .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer();
-        zip.file(`android-chrome-${size}x${size}.png`, png);
+        const filename = `${androidDir}android-chrome-${size}x${size}.png`;
+        if (!ALL_SIZES.includes(size as any)) {
+          const png = await resizeIfNeeded(buffer, size, originalSize);
+          zip.file(filename, png);
+        } else {
+          const existingPng = zip.file(`favicon-${size}x${size}.png`);
+          if (existingPng) {
+            zip.file(filename, await existingPng.async("nodebuffer"));
+          }
+        }
       }
     }
 
     if (includeWindows) {
       for (const size of WINDOWS_SIZES) {
-        const png = await sharp(buffer)
-          .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer();
-        zip.file(`mstile-${size}x${size}.png`, png);
+        const filename = `${windowsDir}mstile-${size}x${size}.png`;
+        if (!ALL_SIZES.includes(size as any)) {
+          const png = await resizeIfNeeded(buffer, size, originalSize);
+          zip.file(filename, png);
+        } else {
+          const existingPng = zip.file(`favicon-${size}x${size}.png`);
+          if (existingPng) {
+            zip.file(filename, await existingPng.async("nodebuffer"));
+          }
+        }
       }
     }
-
-    zip.file("favicon.ico", encodeIco(icoBuffers));
+  } else {
+    throw new Error("Invalid mode or missing image.");
   }
 
-  // ==================== CONFIG FILES (MODIFIZIERT) ====================
+  // ==================== ICO-Generierung ====================
+  if (icoBuffers.length > 0) {
+    try {
+      const icoBuffer = await pngToIco(icoBuffers);
+      zip.file("favicon.ico", icoBuffer);
+    } catch (e) {
+      console.error("PNG-TO-ICO ERROR:", e);
+      throw new Error("Failed to generate .ico file.");
+    }
+  }
+
+  // ==================== CONFIG FILES (Pfade aktualisiert) ====================
   if (includeAndroid) {
     const manifest = {
-      // MODIFIZIERT: Variablen verwenden
       name: appName,
       short_name: shortName,
       icons: ANDROID_SIZES.map(size => ({
-        src: `android-chrome-${size}x${size}.png`,
+        src: `${androidDir}android-chrome-${size}x${size}.png`,
         sizes: `${size}x${size}`,
         type: "image/png"
       })),
-      // MODIFIZIERT: Variablen verwenden
       theme_color: themeColor,
       background_color: "#ffffff",
       display: "standalone"
     };
-    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+    // MODIFIZIERT: In den Android-Ordner verschoben
+    zip.file(`${androidDir}manifest.json`, JSON.stringify(manifest, null, 2));
   }
 
   if (includeWindows) {
-    // MODIFIZIERT: Variable für TileColor verwenden
     const browserconfig = `<?xml version="1.0" encoding="utf-8"?>
 <browserconfig>
   <msapplication>
     <tile>
-      <square70x70logo src="mstile-70x70.png"/>
-      <square150x150logo src="mstile-150x150.png"/>
-      <square310x310logo src="mstile-310x310.png"/>
+      <square70x70logo src="${windowsDir}mstile-70x70.png"/>
+      <square150x150logo src="${windowsDir}mstile-150x150.png"/>
+      <square310x310logo src="${windowsDir}mstile-310x310.png"/>
       <TileColor>${themeColor}</TileColor>
     </tile>
   </msapplication>
 </browserconfig>`;
-    zip.file("browserconfig.xml", browserconfig);
+    // MODIFIZIERT: In den Windows-Ordner verschoben
+    zip.file(`${windowsDir}browserconfig.xml`, browserconfig);
   }
 
-  // ==================== HTML EXAMPLE (MODIFIZIERT) ====================
-  const htmlLines: string[] = [
-    '<!DOCTYPE html>',
-    '<html><head>',
-    '  <meta charset="utf-8">',
-    '  <title>Favicon Test</title>',
-    '  <link rel="icon" href="favicon.ico">',
-    ...ALL_SIZES.map(s => `  <link rel="icon" type="image/png" sizes="${s}x${s}" href="favicon-${s}x${s}.png">`),
-  ];
-
-  if (includeApple) {
-    htmlLines.push(...APPLE_SIZES.map(s => `  <link rel="apple-touch-icon" sizes="${s}x${s}" href="apple-touch-icon-${s}x${s}.png">`));
-  }
-  if (includeAndroid) {
-    htmlLines.push('  <link rel="manifest" href="manifest.json">');
-    // NEU: Theme-Color-Meta-Tag hinzufügen
-    htmlLines.push(`  <meta name="theme-color" content="${themeColor}">`);
-  }
-  if (includeWindows) {
-    // MODIFIZIERT: Variable für TileColor verwenden
-    htmlLines.push(`  <meta name="msapplication-TileColor" content="${themeColor}">`);
-    htmlLines.push('  <meta name="msapplication-TileImage" content="mstile-144x144.png">');
-    htmlLines.push('  <meta name="msapplication-config" content="browserconfig.xml">');
-  }
-
-  htmlLines.push('</head><body><h1>favfav – your favicons are ready!</h1></body></html>');
+  // ==================== HTML EXAMPLE (AUSKOMMENTIERT) ====================
+  /*
+  const htmlLines: string[] = [ ... ];
   zip.file("favicon-example.html", htmlLines.join("\n"));
+  */
+  // ==================== ENDE HTML EXAMPLE ====================
 
+
+  // ==================== RETURN ====================
   return await zip.generateAsync({ type: "nodebuffer" });
 }
