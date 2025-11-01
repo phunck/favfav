@@ -6,6 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const mode = formData.get("mode") as "simple" | "advanced";
+    const includeApple = formData.get("includeApple") === "true";
 
     let zipBuffer: Buffer;
 
@@ -18,11 +19,11 @@ export async function POST(req: NextRequest) {
           if (file) advancedImages[size] = file;
         }
       }
-      zipBuffer = await generateFaviconZip("advanced", undefined, advancedImages);
+      zipBuffer = await generateFaviconZip("advanced", undefined, advancedImages, includeApple);
     } else {
       const image = formData.get("image") as File;
-      if (!image) return new Response("Kein Bild hochgeladen", { status: 400 });
-      zipBuffer = await generateFaviconZip("simple", image);
+      if (!image) return new Response("No image uploaded", { status: 400 });
+      zipBuffer = await generateFaviconZip("simple", image, undefined, includeApple);
     }
 
     return new Response(zipBuffer.buffer as BodyInit, {
@@ -33,6 +34,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Favicon generation error:", error);
-    return new Response("Interner Serverfehler", { status: 500 });
+    return new Response("Internal Server Error", { status: 500 });
   }
 }

@@ -7,14 +7,18 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CustomFileInput } from "@/components/CustomFileInput";
+import { InfoTip } from "@/components/InfoTip";
 
 const ICO_SIZES = [16, 32, 48, 64, 128, 256, 512] as const;
+const APPLE_SIZES = [120, 152, 167, 180] as const;
 
 export default function Home() {
   const [simpleFile, setSimpleFile] = useState<File | null>(null);
   const [advancedFiles, setAdvancedFiles] = useState<Record<number, File | null>>({});
   const [isAdvanced, setIsAdvanced] = useState(false);
+  const [includeApple, setIncludeApple] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -50,6 +54,8 @@ export default function Home() {
       }
     }
 
+    formData.append("includeApple", includeApple.toString());
+
     try {
       const res = await fetch("/api/generate-favicon", {
         method: "POST",
@@ -72,6 +78,11 @@ export default function Home() {
   const hasFiles = isAdvanced
     ? Object.values(advancedFiles).some((f) => f)
     : simpleFile;
+
+  const displaySizes = [
+    ...ICO_SIZES,
+    ...(isAdvanced && includeApple ? APPLE_SIZES : [])
+  ].sort((a, b) => a - b);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -104,11 +115,36 @@ export default function Home() {
 
         {/* Simple Mode */}
         {!isAdvanced && (
-          <div className="space-y-4">
-            <Label>Upload image (will be scaled)</Label>
+          <div className="space-y-5">
+            <Label className="text-base font-medium">Upload image (will be scaled)</Label>
+
+            {/* Pro Tip – MD3 InfoTip */}
+            <InfoTip>
+              <p className="font-medium">Pro tip:</p>
+              <p>
+                Upload a <strong>512×512</strong> image for best results. 
+                We downscale perfectly — <em>never upscale</em>.
+              </p>
+            </InfoTip>
+
+            {/* Apple Checkbox */}
+            <div className="flex items-center space-x-2 -ml-1">
+              <Checkbox
+                id="include-apple"
+                checked={includeApple}
+                onCheckedChange={(checked) => setIncludeApple(checked as boolean)}
+              />
+              <Label htmlFor="include-apple" className="cursor-pointer text-sm font-normal text-gray-700">
+                Include Apple Touch Icons{" "}
+                <span className="text-indigo-600 font-medium text-xs">
+                  (for the special child)
+                </span>
+              </Label>
+            </div>
+
             <CustomFileInput
               id="simple-image"
-              label="Single image"
+              label=""
               file={simpleFile}
               onChange={handleSimpleChange}
             />
@@ -121,10 +157,26 @@ export default function Home() {
             <CardHeader>
               <CardTitle>Upload per size</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* Apple Checkbox */}
+              <div className="flex items-center space-x-2 -ml-1">
+                <Checkbox
+                  id="include-apple"
+                  checked={includeApple}
+                  onCheckedChange={(checked) => setIncludeApple(checked as boolean)}
+                />
+                <Label htmlFor="include-apple" className="cursor-pointer text-sm font-normal text-gray-700">
+                  Include Apple Touch Icons{" "}
+                  <span className="text-indigo-600 font-medium text-xs">
+                    (for the special child)
+                  </span>
+                </Label>
+              </div>
+
+              {/* Dynamische Größenliste */}
               <ScrollArea className="h-96 pr-4">
                 <div className="space-y-4">
-                  {ICO_SIZES.map((size) => (
+                  {displaySizes.map((size) => (
                     <CustomFileInput
                       key={size}
                       id={`advanced-${size}`}
