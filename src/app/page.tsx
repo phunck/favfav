@@ -29,7 +29,8 @@ const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
-const MAX_FILE_SIZE_MB = 48;
+// ✅ Neues reales Upload-Limit
+const MAX_FILE_SIZE_MB = 4;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 function HomePage() {
@@ -109,11 +110,11 @@ function HomePage() {
     }
 
     if (totalSize > MAX_FILE_SIZE_BYTES) {
-      alert(
-        `Total upload size (${(totalSize / 1024 / 1024).toFixed(
-          1
-        )} MB) exceeds the ${MAX_FILE_SIZE_MB} MB limit.`
-      );
+      toast({
+        title: "File too large",
+        description: `Your upload exceeds ${MAX_FILE_SIZE_MB} MB. Please choose a smaller image.`,
+        duration: 5000,
+      });
       setLoading(false);
       setProgress(0);
       return;
@@ -146,7 +147,7 @@ function HomePage() {
 
       if (!res.ok) {
         if (res.status === 413) {
-          throw new Error(`File too large (max ${MAX_FILE_SIZE_MB} MB).`);
+          throw new Error(`The uploaded file exceeds ${MAX_FILE_SIZE_MB} MB.`);
         }
         throw new Error("Generation failed (server error).");
       }
@@ -158,7 +159,14 @@ function HomePage() {
       setProgress(100);
     } catch (err) {
       console.error("Fetch generation error:", err);
-      alert(err instanceof Error ? err.message : "Something went wrong.");
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Something went wrong during generation.",
+        duration: 5000,
+      });
       setProgress(0);
     } finally {
       setLoading(false);
@@ -314,7 +322,7 @@ function HomePage() {
             <CardHeader>
               <CardTitle>Upload image</CardTitle>
               <p className="text-sm text-gray-600 pt-1">
-                Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB.
+                Accepts PNG, JPG, GIF, WebP — max {MAX_FILE_SIZE_MB} MB.
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -365,7 +373,7 @@ function HomePage() {
             <CardHeader>
               <CardTitle>Upload per size</CardTitle>
               <p className="text-sm text-gray-600 pt-1">
-                Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB total.
+                Accepts PNG, JPG, GIF, WebP — max {MAX_FILE_SIZE_MB} MB total.
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -422,12 +430,12 @@ function HomePage() {
                 <DialogHeader>
                   <DialogTitle>Liked it? Support me and my family</DialogTitle>
                   <DialogDescription>
-                    Thanks for using .favfav! If you'd like to support my family, continue below.
+                    Thanks for using .favfav! If you'd like to support my family,
+                    continue below.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-3">
-                  {/* Stripe button */}
                   <Button
                     className="w-full h-11 bg-[#635bff] hover:bg-[#5851db] text-white font-semibold rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
                     onClick={async () => {
@@ -437,7 +445,8 @@ function HomePage() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ mode: "support", amount: 500 }),
                         });
-                        if (!res.ok) throw new Error("Checkout creation failed");
+                        if (!res.ok)
+                          throw new Error("Checkout creation failed");
                         const data = await res.json();
                         if (data.url) {
                           window.location.href = data.url;
@@ -445,9 +454,14 @@ function HomePage() {
                           throw new Error("No checkout URL returned");
                         }
                       } catch (e) {
-                        alert(
-                          e instanceof Error ? e.message : "Stripe checkout failed"
-                        );
+                        toast({
+                          title: "Stripe checkout failed",
+                          description:
+                            e instanceof Error
+                              ? e.message
+                              : "Something went wrong.",
+                          duration: 5000,
+                        });
                       }
                     }}
                   >

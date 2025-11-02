@@ -2,7 +2,16 @@
 import { NextRequest } from "next/server";
 import { generateFaviconZip } from "@/lib/favicon-generator";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
+
+// ✅ Setzt das Request-Limit auf 4 MB
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "4mb",
+    },
+  },
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +28,7 @@ export async function POST(req: NextRequest) {
     let simpleImage: File | undefined;
     let advancedImages: Record<number, File> | undefined;
 
+    // --- Modus prüfen und Dateien sammeln ---
     if (mode === "advanced") {
       advancedImages = {};
       for (const key of formData.keys()) {
@@ -33,9 +43,12 @@ export async function POST(req: NextRequest) {
       }
     } else {
       simpleImage = formData.get("image") as File;
-      if (!simpleImage) return new Response("No image uploaded", { status: 400 });
+      if (!simpleImage) {
+        return new Response("No image uploaded", { status: 400 });
+      }
     }
 
+    // --- ZIP-Erstellung ---
     const zipBuffer = await generateFaviconZip(
       mode,
       simpleImage,
@@ -48,15 +61,23 @@ export async function POST(req: NextRequest) {
       themeColor
     );
 
-    // Minimaler TS-Fix: Buffer -> Uint8Array (BodyInit)
+    // --- Erfolgreiche Antwort ---
     return new Response(new Uint8Array(zipBuffer), {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": 'attachment; filename="favfavicon.zip"',
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Favicon generation error:", error);
+
+    // --- Spezifische Fehlerbehandlung ---
+    if (error?.message?.includes("entity too large") || error?.status === 413) {
+      return new Response("The uploaded file exceeds the 4 MB limit.", {
+        status: 413,
+      });
+    }
+
     return new Response("Internal Server Error", { status: 500 });
   }
 }
