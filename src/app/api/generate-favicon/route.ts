@@ -2,8 +2,14 @@
 import { NextRequest } from "next/server";
 import { generateFaviconZip } from "@/lib/favicon-generator";
 
+// DER FIX: Erzwinge die Node.js-Laufzeit statt Edge
+// Das behebt Import-Fehler (für sharp/png-to-ico) UND das 4.5MB Upload-Limit
+export const runtime = 'nodejs';
+// (Optional 'nodejs18.x' oder 'nodejs20.x' verwenden, aber 'nodejs' ist oft ausreichend)
+
 export async function POST(req: NextRequest) {
   try {
+    // Dieser Code (FormData) funktioniert jetzt dank Node.js-Runtime wieder
     const formData = await req.formData();
     const mode = formData.get("mode") as "simple" | "advanced";
     const includeApple = formData.get("includeApple") === "true";
@@ -46,8 +52,7 @@ export async function POST(req: NextRequest) {
     return new Response(zipBuffer.buffer as BodyInit, {
       headers: {
         "Content-Type": "application/zip",
-        // MODIFIZIERT: Dateiname geändert
-        "Content-Disposition": 'attachment; filename="favfavicons.zip"',
+        "Content-Disposition": 'attachment; filename="favfavicon.zip"',
       },
     });
 

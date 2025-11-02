@@ -3,14 +3,11 @@ import sharp from "sharp";
 import pngToIco from "png-to-ico";
 import JSZip from "jszip";
 
-// PREVIEW-TYP ENTFERNT
-
 const ALL_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
-// NEU: Ordner-Pfade (mit Schrägstrich am Ende)
 const appleDir = "apple/";
 const androidDir = "android/";
 const windowsDir = "windows/";
@@ -150,47 +147,16 @@ export async function generateFaviconZip(
     }
   }
 
-  // ==================== CONFIG FILES (Pfade aktualisiert) ====================
+  // ==================== CONFIG FILES ====================
   if (includeAndroid) {
-    const manifest = {
-      name: appName,
-      short_name: shortName,
-      icons: ANDROID_SIZES.map(size => ({
-        src: `${androidDir}android-chrome-${size}x${size}.png`,
-        sizes: `${size}x${size}`,
-        type: "image/png"
-      })),
-      theme_color: themeColor,
-      background_color: "#ffffff",
-      display: "standalone"
-    };
-    // MODIFIZIERT: In den Android-Ordner verschoben
+    const manifest = { name: appName, short_name: shortName, icons: ANDROID_SIZES.map(size => ({ src: `${androidDir}android-chrome-${size}x${size}.png`, sizes: `${size}x${size}`, type: "image/png" })), theme_color: themeColor, background_color: "#ffffff", display: "standalone" };
     zip.file(`${androidDir}manifest.json`, JSON.stringify(manifest, null, 2));
   }
 
   if (includeWindows) {
-    const browserconfig = `<?xml version="1.0" encoding="utf-8"?>
-<browserconfig>
-  <msapplication>
-    <tile>
-      <square70x70logo src="${windowsDir}mstile-70x70.png"/>
-      <square150x150logo src="${windowsDir}mstile-150x150.png"/>
-      <square310x310logo src="${windowsDir}mstile-310x310.png"/>
-      <TileColor>${themeColor}</TileColor>
-    </tile>
-  </msapplication>
-</browserconfig>`;
-    // MODIFIZIERT: In den Windows-Ordner verschoben
+    const browserconfig = `<?xml version="1.0" encoding="utf-8"?><browserconfig><msapplication><tile><square70x70logo src="${windowsDir}mstile-70x70.png"/><square150x150logo src="${windowsDir}mstile-150x150.png"/><square310x310logo src="${windowsDir}mstile-310x310.png"/><TileColor>${themeColor}</TileColor></tile></msapplication></browserconfig>`;
     zip.file(`${windowsDir}browserconfig.xml`, browserconfig);
   }
-
-  // ==================== HTML EXAMPLE (AUSKOMMENTIERT) ====================
-  /*
-  const htmlLines: string[] = [ ... ];
-  zip.file("favicon-example.html", htmlLines.join("\n"));
-  */
-  // ==================== ENDE HTML EXAMPLE ====================
-
 
   // ==================== RETURN ====================
   return await zip.generateAsync({ type: "nodebuffer" });

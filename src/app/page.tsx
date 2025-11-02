@@ -21,8 +21,9 @@ const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
-// Vercel-Limit-Validierung (4.5MB Limit, wir setzen 4MB)
-const MAX_FILE_SIZE_MB = 4;
+// Wir können das Limit jetzt höher setzen, da wir die Node.js-Runtime nutzen
+// 48MB (Vercel-Limit ist 50MB, 2MB Puffer)
+const MAX_FILE_SIZE_MB = 48;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 
@@ -43,16 +44,12 @@ export default function Home() {
 
   const { backgroundGradient, isClient } = useGenerativeTheme();
 
-  // Die Validierungsfunktion ist jetzt in CustomFileInput.tsx
-
   const handleSimpleChange = (file: File | null) => {
-    // Validierung findet jetzt im Component statt
     setSimpleFile(file);
     setDownloadUrl(null);
   };
 
   const handleAdvancedChange = (size: number, file: File | null) => {
-    // Validierung findet jetzt im Component statt
     setAdvancedFiles((prev) => ({ ...prev, [size]: file }));
     setDownloadUrl(null);
   };
@@ -62,24 +59,37 @@ export default function Home() {
     setProgress(0); 
     setDownloadUrl(null);
 
+    let totalSize = 0;
     const formData = new FormData();
 
     if (isAdvanced) {
       Object.entries(advancedFiles).forEach(([sizeStr, file]) => {
         const size = parseInt(sizeStr, 10);
         if (file) {
+          totalSize += file.size; // Summe erhöhen
           formData.append(`size-${size}`, file);
         }
       });
       formData.append("mode", "advanced");
     } else {
       if (simpleFile) {
+        totalSize = simpleFile.size; // Summe ist die eine Datei
         formData.append("image", simpleFile);
         formData.append("mode", "simple");
       } else {
         setLoading(false);
         return; 
       }
+    }
+
+    // Prüfe die Gesamtsumme (jetzt viel höher)
+    if (totalSize > MAX_FILE_SIZE_BYTES) {
+      alert(
+        `Total upload size (${(totalSize / 1024 / 1024).toFixed(1)} MB) exceeds the ${MAX_FILE_SIZE_MB} MB limit.\n\nPlease reduce the number or size of files in Pro Mode.`
+      );
+      setLoading(false);
+      setProgress(0);
+      return; // Abbruch vor dem Fetch
     }
     
     formData.append("includeApple", includeApple.toString());
@@ -109,6 +119,7 @@ export default function Home() {
       if (progressInterval) clearInterval(progressInterval);
 
       if (!res.ok) {
+        // 413 sollte jetzt (fast) unmöglich sein, aber wir behalten den Check
         if (res.status === 413) {
           throw new Error(`File is too large (Server Error). Max size is ${MAX_FILE_SIZE_MB} MB.`);
         }
@@ -189,9 +200,9 @@ export default function Home() {
               checked={includeApple}
               onCheckedChange={(checked) => setIncludeApple(checked === true)}
             />
+            {/* KORRIGIERT: "the special child" entfernt */}
             <Label htmlFor="apple" className="cursor-pointer text-sm font-normal text-gray-700 flex items-center gap-1">
-              Apple Touch Icons{" "}
-              <span className="text-indigo-600 font-medium text-xs">(for the special child)</span>
+              Apple Touch Icons
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -327,7 +338,7 @@ export default function Home() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button type="button" className="w-4 h-4 rounded-full bg-gray-300 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-400">
-                        ?
+                          ?
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -355,12 +366,11 @@ export default function Home() {
           </div>
         )}
 
-        {/* ==================== SIMPLE MODE (MODIFIZIERT) ==================== */}
+        {/* ==================== SIMPLE MODE ==================== */}
         {!isAdvanced && (
           <Card>
             <CardHeader>
               <CardTitle>Upload image</CardTitle>
-              {/* NEU: Einheitlicher Info-Text */}
               <p className="text-sm text-gray-600 pt-1">
                 Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB.
               </p>
@@ -373,7 +383,6 @@ export default function Home() {
                   We downscale perfectly. <em>But don’t worry — any image works!</em>
                 </p>
               </InfoTip>
-              {/* MODIFIZIERT: Volle Breite */}
               <CustomFileInput
                 id="simple-image"
                 label=""
@@ -381,7 +390,6 @@ export default function Home() {
                 onChange={handleSimpleChange}
                 maxSizeInBytes={MAX_FILE_SIZE_BYTES}
               />
-              {/* MODIFIZIERT: Volle Breite */}
               <Button
                 onClick={handleGenerate}
                 disabled={!simpleFile || loading}
@@ -394,14 +402,13 @@ export default function Home() {
           </Card>
         )}
 
-        {/* ==================== PRO MODE (MODIFIZIERT) ==================== */}
+        {/* ==================== PRO MODE ==================== */}
         {isAdvanced && (
           <Card>
             <CardHeader>
               <CardTitle>Upload per size</CardTitle>
-              {/* NEU: Einheitlicher Info-Text */}
               <p className="text-sm text-gray-600 pt-1">
-                Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB per file.
+                Accepts PNG, JPG, GIF, WebP. Max {MAX_FILE_SIZE_MB} MB total.
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -421,7 +428,7 @@ export default function Home() {
                       label={`${size}×${size}`}
                       file={advancedFiles[size] || null}
                       onChange={(file) => handleAdvancedChange(size, file)}
-                      maxSizeInBytes={MAX_FILE_SIZE_BYTES}
+                      maxSizeInBytes={MAX_FILE_SIZE_BYTES} // Validierung pro Datei
                     />
                   ))}
                 </div>
@@ -438,7 +445,7 @@ export default function Home() {
           </Card>
         )}
         
-        {/* ==================== RESULTS (Herausgezogen) ==================== */}
+        {/* ==================== RESULTS ==================== */}
         {loading && (
           <div className="space-y-2">
             <Progress value={progress} />
