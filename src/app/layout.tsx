@@ -1,6 +1,8 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ToastsProvider } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,9 +27,7 @@ export const metadata: Metadata = {
   publisher: "phunck",
   formatDetection: { telephone: false },
   metadataBase: new URL("https://favfav.phunck.com"),
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
   openGraph: {
     title: ".favfav – The Ultimate Favicon Generator",
     description:
@@ -85,7 +85,12 @@ export default function RootLayout({
         <meta name="theme-color" content="#6366f1" />
         <meta name="msapplication-TileColor" content="#6366f1" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <ToastsProvider>
+          {children}
+          <Toaster />
+        </ToastsProvider>
+      </body>
     </html>
   );
 }
