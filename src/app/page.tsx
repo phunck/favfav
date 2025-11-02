@@ -1,4 +1,4 @@
-// src/app/page.tsx
+// /src/app/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -16,16 +16,14 @@ import { InfoTip } from "@/components/InfoTip";
 
 import { useGenerativeTheme } from "@/lib/useGenerativeTheme";
 
-const ICO_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
+// ICO base sizes (ICO never includes 512; 512 is PWA-only)
+const ICO_SIZES = [16, 32, 48, 64, 128, 256] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
-const ANDROID_SIZES = [192, 196, 512] as const;
+const ANDROID_SIZES = [192, 196, 512] as const; // 512 appears only if Android/PWA is enabled
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
-// Wir können das Limit jetzt höher setzen, da wir die Node.js-Runtime nutzen
-// 48MB (Vercel-Limit ist 50MB, 2MB Puffer)
 const MAX_FILE_SIZE_MB = 48;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
 
 export default function Home() {
   const [simpleFile, setSimpleFile] = useState<File | null>(null);
@@ -66,14 +64,14 @@ export default function Home() {
       Object.entries(advancedFiles).forEach(([sizeStr, file]) => {
         const size = parseInt(sizeStr, 10);
         if (file) {
-          totalSize += file.size; // Summe erhöhen
+          totalSize += file.size;
           formData.append(`size-${size}`, file);
         }
       });
       formData.append("mode", "advanced");
     } else {
       if (simpleFile) {
-        totalSize = simpleFile.size; // Summe ist die eine Datei
+        totalSize = simpleFile.size;
         formData.append("image", simpleFile);
         formData.append("mode", "simple");
       } else {
@@ -82,14 +80,13 @@ export default function Home() {
       }
     }
 
-    // Prüfe die Gesamtsumme (jetzt viel höher)
     if (totalSize > MAX_FILE_SIZE_BYTES) {
       alert(
         `Total upload size (${(totalSize / 1024 / 1024).toFixed(1)} MB) exceeds the ${MAX_FILE_SIZE_MB} MB limit.\n\nPlease reduce the number or size of files in Pro Mode.`
       );
       setLoading(false);
       setProgress(0);
-      return; // Abbruch vor dem Fetch
+      return;
     }
     
     formData.append("includeApple", includeApple.toString());
@@ -110,7 +107,6 @@ export default function Home() {
         });
       }, 300);
 
-
       const res = await fetch("/api/generate-favicon", {
         method: "POST",
         body: formData,
@@ -119,7 +115,6 @@ export default function Home() {
       if (progressInterval) clearInterval(progressInterval);
 
       if (!res.ok) {
-        // 413 sollte jetzt (fast) unmöglich sein, aber wir behalten den Check
         if (res.status === 413) {
           throw new Error(`File is too large (Server Error). Max size is ${MAX_FILE_SIZE_MB} MB.`);
         }
@@ -145,14 +140,14 @@ export default function Home() {
     ? Object.values(advancedFiles).some((f) => f)
     : simpleFile;
 
+  // Display: ICO base sizes (no 512). 512 gets added only via Android/PWA.
   const displaySizesSet = new Set<number>(ICO_SIZES);
   if (isAdvanced) {
     if (includeApple) APPLE_SIZES.forEach(s => displaySizesSet.add(s));
-    if (includeAndroid) ANDROID_SIZES.forEach(s => displaySizesSet.add(s));
+    if (includeAndroid) ANDROID_SIZES.forEach(s => displaySizesSet.add(s)); // adds 512 if enabled
     if (includeWindows) WINDOWS_SIZES.forEach(s => displaySizesSet.add(s));
   }
   const displaySizes = Array.from(displaySizesSet).sort((a, b) => a - b);
-
 
   return (
     <div 
@@ -169,12 +164,12 @@ export default function Home() {
           <p className="text-lg text-indigo-600 font-medium mt-1">your favorite .ico generator</p>
           <p className="text-gray-600 mt-3 text-sm leading-relaxed max-w-xl mx-auto">
             {isAdvanced
-              ? "Pro Mode: Finally! Upload pixel-perfect images for each size — no scaling, no quality loss. Generate the perfect .ico with full control."
+              ? "Pro Mode: Upload pixel-perfect images per size — no scaling where you don’t want it. Full control."
               : (
                   <>
-                    Simple: Upload one image — we automatically generate all standard favicon sizes (16×16 to 512×512) as PNG + one .ico file in a ZIP. <br />
+                    Simple: Upload a single image — we automatically generate all standard favicon sizes (16×16 to 512×512) as PNG and one multi-size <code>.ico</code> in a ZIP. <br />
                     <span className="text-indigo-600 font-medium">
-                      Want pixel-perfect control? → Switch to <strong>Pro Mode</strong>
+                      Need per-size control? → Switch to <strong>Pro Mode</strong>
                     </span>
                   </>
                 )}
@@ -200,7 +195,6 @@ export default function Home() {
               checked={includeApple}
               onCheckedChange={(checked) => setIncludeApple(checked === true)}
             />
-            {/* KORRIGIERT: "the special child" entfernt */}
             <Label htmlFor="apple" className="cursor-pointer text-sm font-normal text-gray-700 flex items-center gap-1">
               Apple Touch Icons
               <TooltipProvider>
@@ -211,10 +205,9 @@ export default function Home() {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p className="font-medium">iPhone & iPad Homescreen</p>
+                    <p className="font-medium">iPhone & iPad Home Screen</p>
                     <p className="text-sm mt-1">
                       Generates <code>120×120</code>, <code>152×152</code>, <code>167×167</code>, and <code>180×180</code> icons.
-                      Used when users add your site to their home screen on iOS.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -240,8 +233,8 @@ export default function Home() {
                   <TooltipContent className="max-w-xs">
                     <p className="font-medium">Android & Progressive Web Apps</p>
                     <p className="text-sm mt-1">
-                      Generates <code>192×192</code> (standard), <code>196×196</code> (legacy support), and <code>512×512</code> (high-res).
-                      Required for Chrome, Android homescreen, and <code>manifest.json</code> in PWAs.
+                      Generates <code>192×192</code>, <code>196×196</code>, and <code>512×512</code> PNGs + <code>manifest.json</code>.{" "}
+                      <strong>512×512 is PWA-only and not embedded into the <code>.ico</code>.</strong>
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -267,8 +260,7 @@ export default function Home() {
                   <TooltipContent className="max-w-xs">
                     <p className="font-medium">Windows Start Menu & Taskbar</p>
                     <p className="text-sm mt-1">
-                      Generates <code>70×70</code>, <code>144×144</code>, <code>150×150</code>, and <code>310×310</code> tiles.
-                      Used in Windows 8/10/11 for pinned sites. Includes <code>browserconfig.xml</code>.
+                      Generates <code>70×70</code>, <code>144×144</code>, <code>150×150</code>, and <code>310×310</code> tiles (+ <code>browserconfig.xml</code>).
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -277,7 +269,7 @@ export default function Home() {
           </div>
         </div>
         
-        {/* PWA Options */}
+        {/* PWA options */}
         {(includeAndroid || includeWindows) && (
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -293,7 +285,7 @@ export default function Home() {
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Full name of your PWA (e.g., "My Awesome App").</p>
+                        <p>Full name of your PWA (e.g., “My Awesome App”).</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -317,7 +309,7 @@ export default function Home() {
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Short name for the homescreen (e.g., "Awesome").</p>
+                        <p>Short name shown on the home screen (e.g., “Awesome”).</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -377,11 +369,24 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-6">
               <InfoTip>
-                <p className="font-medium">Pro tip:</p>
-                <p>
-                  For the best quality, upload a <strong>512×512</strong> image. 
-                  We downscale perfectly. <em>But don’t worry — any image works!</em>
-                </p>
+                {!includeAndroid ? (
+                  <>
+                    <p className="font-medium">Recommendation:</p>
+                    <p>
+                      Upload a <strong>256×256</strong> image — that’s fully sufficient for <code>favicon.ico</code>.{" "}
+                      We’ll downscale perfectly for smaller sizes.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium">Recommendation for PWAs:</p>
+                    <p>
+                      For best quality, upload a <strong>512×512</strong> image.{" "}
+                      <code>favicon.ico</code> uses sizes up to <strong>256×256</strong>,{" "}
+                      while <strong>512×512</strong> is <em>PWA only</em> (in <code>manifest.json</code>) and is not embedded into the <code>.ico</code>.
+                    </p>
+                  </>
+                )}
               </InfoTip>
               <CustomFileInput
                 id="simple-image"
@@ -415,20 +420,26 @@ export default function Home() {
               <InfoTip>
                 <p className="font-medium">Pixel-perfect control:</p>
                 <p>
-                  Your uploaded images are used <strong>1:1</strong> — no resizing. 
-                  Missing sizes are derived from the <strong>largest image</strong>.
+                  Your uploaded images are used <strong>1:1</strong> where provided; missing sizes are derived from the{" "}
+                  <strong>largest image</strong>.{" "}
+                  {includeAndroid ? (
+                    <>For PWAs, also provide <strong>512×512</strong> (PWA only, not embedded into <code>.ico</code>).</>
+                  ) : (
+                    <>For the <code>favicon.ico</code> alone, sizes up to <strong>256×256</strong> are sufficient.</>
+                  )}
                 </p>
               </InfoTip>
+
               <ScrollArea className="h-96 pr-4">
                 <div className="space-y-4">
                   {displaySizes.map((size) => (
                     <CustomFileInput
                       key={size}
                       id={`advanced-${size}`}
-                      label={`${size}×${size}`}
+                      label={`${size}×${size}${size === 512 ? " (PWA only)" : ""}`}
                       file={advancedFiles[size] || null}
                       onChange={(file) => handleAdvancedChange(size, file)}
-                      maxSizeInBytes={MAX_FILE_SIZE_BYTES} // Validierung pro Datei
+                      maxSizeInBytes={MAX_FILE_SIZE_BYTES}
                     />
                   ))}
                 </div>

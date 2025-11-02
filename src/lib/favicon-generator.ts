@@ -5,17 +5,24 @@ import JSZip from "jszip";
 
 const ALL_SIZES = [16, 32, 48, 64, 128, 144, 192, 256, 512] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
-const ANDROID_SIZES = [192, 196, 512] as const;
+const ANDROID_SIZES = [192, 196, 512] as const; // 512 NUR fürs PWA/Manifest
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
 const appleDir = "apple/";
 const androidDir = "android/";
 const windowsDir = "windows/";
 
-const resizeIfNeeded = async (buffer: Buffer, targetSize: number, sourceSize?: number): Promise<Buffer> => {
+const resizeIfNeeded = async (
+  buffer: Buffer,
+  targetSize: number,
+  sourceSize?: number
+): Promise<Buffer> => {
   if (sourceSize === targetSize) return buffer;
   return await sharp(buffer, { animated: false })
-    .resize(targetSize, targetSize, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(targetSize, targetSize, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 };
@@ -41,19 +48,22 @@ export async function generateFaviconZip(
       .filter((x): x is { size: number; file: File } => x.file !== null);
 
     if (uploaded.length === 0) {
-        throw new Error("No images provided in Pro Mode.");
+      throw new Error("No images provided in Pro Mode.");
     }
-    
-    const largest = uploaded.reduce((max, cur) => (cur.size > max.size ? cur : max), uploaded[0]);
+
+    const largest = uploaded.reduce(
+      (max, cur) => (cur.size > max.size ? cur : max),
+      uploaded[0]
+    );
 
     const targetSizesSet = new Set<number>(ALL_SIZES);
-    if (includeApple) APPLE_SIZES.forEach(s => targetSizesSet.add(s));
-    if (includeAndroid) ANDROID_SIZES.forEach(s => targetSizesSet.add(s));
-    if (includeWindows) WINDOWS_SIZES.forEach(s => targetSizesSet.add(s));
+    if (includeApple) APPLE_SIZES.forEach((s) => targetSizesSet.add(s));
+    if (includeAndroid) ANDROID_SIZES.forEach((s) => targetSizesSet.add(s));
+    if (includeWindows) WINDOWS_SIZES.forEach((s) => targetSizesSet.add(s));
     const targetSizes = Array.from(targetSizesSet);
 
     for (const targetSize of targetSizes) {
-      const uploadedForSize = uploaded.find(x => x.size === targetSize);
+      const uploadedForSize = uploaded.find((x) => x.size === targetSize);
       let sourceBuffer: Buffer;
       let sourceSize: number;
 
@@ -63,19 +73,24 @@ export async function generateFaviconZip(
       } else {
         sourceBuffer = Buffer.from(await largest.file.arrayBuffer());
         sourceSize = largest.size;
-      } 
+      }
 
       const png = await resizeIfNeeded(sourceBuffer, targetSize, sourceSize);
       let filename = "";
 
-      if (includeApple && APPLE_SIZES.includes(targetSize as any)) filename = `${appleDir}apple-touch-icon-${targetSize}x${targetSize}.png`;
-      else if (includeAndroid && ANDROID_SIZES.includes(targetSize as any)) filename = `${androidDir}android-chrome-${targetSize}x${targetSize}.png`;
-      else if (includeWindows && WINDOWS_SIZES.includes(targetSize as any)) filename = `${windowsDir}mstile-${targetSize}x${targetSize}.png`;
-      else if (ALL_SIZES.includes(targetSize as any)) filename = `favicon-${targetSize}x${targetSize}.png`;
+      if (includeApple && APPLE_SIZES.includes(targetSize as any))
+        filename = `${appleDir}apple-touch-icon-${targetSize}x${targetSize}.png`;
+      else if (includeAndroid && ANDROID_SIZES.includes(targetSize as any))
+        filename = `${androidDir}android-chrome-${targetSize}x${targetSize}.png`;
+      else if (includeWindows && WINDOWS_SIZES.includes(targetSize as any))
+        filename = `${windowsDir}mstile-${targetSize}x${targetSize}.png`;
+      else if (ALL_SIZES.includes(targetSize as any))
+        filename = `favicon-${targetSize}x${targetSize}.png`;
       else continue;
 
       zip.file(filename, png);
-      
+
+      // *** Wichtig: Nur <= 256×256 ins ICO (512 ist PWA-only) ***
       if (ALL_SIZES.includes(targetSize as any) && targetSize <= 256) {
         icoBuffers.push(png);
       }
@@ -86,13 +101,13 @@ export async function generateFaviconZip(
   else if (mode === "simple" && simpleImage) {
     const buffer = Buffer.from(await simpleImage.arrayBuffer());
     const metadata = await sharp(buffer, { animated: false }).metadata();
-    const originalSize = metadata.width; 
+    const originalSize = metadata.width;
 
     for (const size of ALL_SIZES) {
       const png = await resizeIfNeeded(buffer, size, originalSize);
       const filename = `favicon-${size}x${size}.png`;
       zip.file(filename, png);
-      if (size <= 256) icoBuffers.push(png);
+      if (size <= 256) icoBuffers.push(png); // *** <=256 ins ICO ***
     }
 
     if (includeApple) {
@@ -139,7 +154,7 @@ export async function generateFaviconZip(
   // ==================== ICO-Generierung ====================
   if (icoBuffers.length > 0) {
     try {
-      const icoBuffer = await pngToIco(icoBuffers);
+      const icoBuffer = await pngToIco(icoBuffers); // echtes Multi-Size ICO
       zip.file("favicon.ico", icoBuffer);
     } catch (e) {
       console.error("PNG-TO-ICO ERROR:", e);
@@ -149,7 +164,18 @@ export async function generateFaviconZip(
 
   // ==================== CONFIG FILES ====================
   if (includeAndroid) {
-    const manifest = { name: appName, short_name: shortName, icons: ANDROID_SIZES.map(size => ({ src: `${androidDir}android-chrome-${size}x${size}.png`, sizes: `${size}x${size}`, type: "image/png" })), theme_color: themeColor, background_color: "#ffffff", display: "standalone" };
+    const manifest = {
+      name: appName,
+      short_name: shortName,
+      icons: ANDROID_SIZES.map((size) => ({
+        src: `${androidDir}android-chrome-${size}x${size}.png`,
+        sizes: `${size}x${size}`,
+        type: "image/png",
+      })),
+      theme_color: themeColor,
+      background_color: "#ffffff",
+      display: "standalone",
+    };
     zip.file(`${androidDir}manifest.json`, JSON.stringify(manifest, null, 2));
   }
 
