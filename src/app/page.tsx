@@ -1,7 +1,7 @@
 // src/app/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,7 @@ const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 const MAX_FILE_SIZE_MB = 48;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-export default function Home() {
+function HomePage() {
   const [simpleFile, setSimpleFile] = useState<File | null>(null);
   const [advancedFiles, setAdvancedFiles] = useState<Record<number, File | null>>({});
   const [isAdvanced, setIsAdvanced] = useState(false);
@@ -473,5 +473,13 @@ export default function Home() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="text-center p-8">Loading...</div>}>
+      <HomePage />
+    </Suspense>
   );
 }
