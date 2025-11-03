@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: ".favfav – The Ultimate Favicon Generator",
   description:
-    "Generate perfect favicons in seconds. PNG, ICO, Apple Touch, Android, Windows – all platforms. Free, fast, pixel-perfect.",
+    "Generate pixel-perfect favicons in seconds. PNG, ICO, Apple Touch, Android, Windows – all platforms. Free, fast, pixel-perfect.",
   keywords: [
     "favicon generator",
     "ico generator",
@@ -26,13 +26,13 @@ export const metadata: Metadata = {
   creator: "phunck",
   publisher: "phunck",
   formatDetection: { telephone: false },
-  metadataBase: new URL("https://favfav.phunck.com"),
+  metadataBase: new URL("https://favfavicon.com"),
   alternates: { canonical: "/" },
   openGraph: {
     title: ".favfav – The Ultimate Favicon Generator",
     description:
-      "Generate perfect favicons in seconds. PNG, ICO, Apple Touch, Android, Windows – all platforms. Free, fast, pixel-perfect.",
-    url: "https://favfav.phunck.com",
+      "Generate pixel-perfect favicons in seconds. PNG, ICO, Apple Touch, Android, Windows – all platforms. Free, fast, pixel-perfect.",
+    url: "https://favfavicon.com",
     siteName: ".favfav",
     locale: "en_US",
     type: "website",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: ".favfav – The Ultimate Favicon Generator",
     description:
-      "Generate perfect favicons in seconds. PNG, ICO, Apple Touch, Android, Windows – all platforms. Free, fast, pixel-perfect.",
+      "Generate pixel-perfect favicons in seconds. PNG, ICO, Apple Touch, Android, Windows – all platforms. Free, fast, pixel-perfect.",
     creator: "@phunck",
     images: ["/og-image.png"],
   },
