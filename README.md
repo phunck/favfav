@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# .favfav – The Ultimate Favicon Generator
 
-## Getting Started
+**.favfav** is a lightweight, privacy-friendly favicon generator built with [Next.js](https://nextjs.org/) and [TypeScript](https://www.typescriptlang.org/).  
+It lets you create pixel-perfect favicon sets in seconds – including `.ico`, Apple Touch, Android, Windows Tiles, and PWA assets – all neatly packaged in a ZIP.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+![Node.js](https://img.shields.io/badge/Node.js-20-green?logo=node.js)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+---
+
+## 🚀 Features
+
+- **One-click generation** of complete favicon sets  
+- Generates real `.ico` files (up to 256×256)  
+- Includes optional **Apple Touch**, **Android / PWA**, and **Windows** icons  
+- Smart recommendations for image sizes (256×256 or 512×512 for PWAs)  
+- **Pro Mode** – upload pixel-perfect images per size, no automatic scaling  
+- Clean, modern UI with gradient themes  
+- Built-in Stripe donation dialog (thank-you modal after download)  
+- Fully client-side image processing using Node.js and Sharp  
+- No tracking, no cookies, no nonsense  
+
+---
+
+## 🧰 Tech Stack
+
+- **Next.js 16 (App Router)**
+- **TypeScript**
+- **React 18**
+- **Sharp**
+- **png-to-ico**
+- **Tailwind CSS**
+- **Shadcn/UI Components**
+- **Stripe Checkout (optional)**
+
+---
+
+## 💡 Usage
+
+1. Upload a single image (recommended: **256×256 px**)  
+2. Choose the platforms you want (Apple, Android, Windows)  
+3. Hit **Generate Favicons**  
+4. Download your ZIP file  
+5. *(Optional)* Support the project via the Stripe dialog 💙  
+
+---
+
+## 🧑‍💻 Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Start local development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+# Build for production
+npm run build
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Start the production build
+npm start
