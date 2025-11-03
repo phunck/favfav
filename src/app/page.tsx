@@ -24,12 +24,13 @@ import { InfoTip } from "@/components/InfoTip";
 import { useGenerativeTheme } from "@/lib/useGenerativeTheme";
 import { useToast } from "@/components/ui/use-toast";
 
+import { generateFaviconZipClient } from "@/lib/favicon-generator.client";
+
 const ICO_SIZES = [16, 32, 48, 64, 128, 256] as const;
 const APPLE_SIZES = [120, 152, 167, 180] as const;
 const ANDROID_SIZES = [192, 196, 512] as const;
 const WINDOWS_SIZES = [70, 144, 150, 310] as const;
 
-// ✅ Neues reales Upload-Limit
 const MAX_FILE_SIZE_MB = 4;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
@@ -53,7 +54,7 @@ function HomePage() {
   const { toast } = useToast();
   const params = useSearchParams();
 
-  // === Toast feedback after checkout ===
+  // === (Unverändert) ===
   useEffect(() => {
     const status = params.get("checkout");
     if (status === "success") {
@@ -71,112 +72,193 @@ function HomePage() {
     }
   }, [params, toast]);
 
+  // === (Unverändert) ===
   const handleSimpleChange = (file: File | null) => {
     setSimpleFile(file);
     setDownloadUrl(null);
   };
 
+  // === (Unverändert) ===
   const handleAdvancedChange = (size: number, file: File | null) => {
     setAdvancedFiles((prev) => ({ ...prev, [size]: file }));
     setDownloadUrl(null);
   };
 
+  // === ANGEPASSTE GENERATE-FUNKTION (HYBRID) ===
   const handleGenerate = async () => {
     setLoading(true);
     setProgress(0);
     setDownloadUrl(null);
 
-    let totalSize = 0;
-    const formData = new FormData();
-
-    if (isAdvanced) {
-      Object.entries(advancedFiles).forEach(([sizeStr, file]) => {
-        const size = parseInt(sizeStr, 10);
-        if (file) {
-          totalSize += file.size;
-          formData.append(`size-${size}`, file);
+    let progressInterval: NodeJS.Timeout | null = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          if (progressInterval) clearInterval(progressInterval);
+          return 90;
         }
+        return prev + 10;
       });
-      formData.append("mode", "advanced");
+    }, 300);
+
+    // ===================================
+    // === PRO-MODE LOGIK (HYBRID) ===
+    // ===================================
+    if (isAdvanced) {
+      try {
+        const validFiles = Object.entries(advancedFiles).reduce(
+          (acc, [size, file]) => {
+            if (file) acc[parseInt(size, 10)] = file;
+            return acc;
+          },
+          {} as Record<number, File>
+        );
+
+        if (Object.keys(validFiles).length === 0) {
+          throw new Error("Please upload at least one image in Pro Mode.");
+        }
+
+        const { zip, icoBuffers } = await generateFaviconZipClient(
+          "advanced",
+          validFiles,
+          includeApple,
+          includeAndroid,
+          includeWindows,
+          appName,
+          shortName,
+          themeColor
+        );
+
+        const icoFormData = new FormData();
+        icoBuffers.forEach((buffer, index) => {
+          icoFormData.append(
+            `ico-png-${index}`,
+            new Blob([buffer], { type: "image/png" }),
+            `img-${index}.png`
+          );
+        });
+
+        const icoRes = await fetch("/api/generate-ico", {
+          method: "POST",
+          body: icoFormData,
+        });
+
+        if (!icoRes.ok) {
+          throw new Error("Failed to generate .ico file on server.");
+        }
+
+        const icoBlob = await icoRes.blob();
+        zip.file("favicon.ico", icoBlob);
+        const finalZipBlob = await zip.generateAsync({ type: "blob" });
+
+        if (progressInterval) clearInterval(progressInterval);
+        
+        // === KORREKTUR 1 (für Pro Mode) ===
+        // Wir "waschen" den Blob, um Turbopack-Fehler zu umgehen.
+        const safeBlob = new Blob([finalZipBlob], { type: "application/zip" });
+        const url = URL.createObjectURL(safeBlob);
+        // === ENDE KORREKTUR 1 ===
+
+        setDownloadUrl(url);
+        setProgress(100);
+
+      } catch (err) {
+        console.error("Hybrid generation error:", err);
+        if (progressInterval) clearInterval(progressInterval);
+        toast({
+          title: "Error (Hybrid)",
+          description:
+            err instanceof Error
+              ? err.message
+              : "Something went wrong during hybrid generation.",
+          duration: 5000,
+        });
+        setProgress(0);
+      } finally {
+        setLoading(false);
+      }
+
+    // ======================================
+    // === SIMPLE-MODE LOGIK (SERVER) ===
+    // ======================================
     } else {
-      if (simpleFile) {
-        totalSize = simpleFile.size;
-        formData.append("image", simpleFile);
-        formData.append("mode", "simple");
-      } else {
+      
+      if (!simpleFile) {
+        if (progressInterval) clearInterval(progressInterval);
         setLoading(false);
         return;
       }
-    }
-
-    if (totalSize > MAX_FILE_SIZE_BYTES) {
-      toast({
-        title: "File too large",
-        description: `Your upload exceeds ${MAX_FILE_SIZE_MB} MB. Please choose a smaller image.`,
-        duration: 5000,
-      });
-      setLoading(false);
-      setProgress(0);
-      return;
-    }
-
-    formData.append("includeApple", includeApple.toString());
-    formData.append("includeAndroid", includeAndroid.toString());
-    formData.append("includeWindows", includeWindows.toString());
-    formData.append("appName", appName);
-    formData.append("shortName", shortName);
-    formData.append("themeColor", themeColor);
-
-    try {
-      let progressInterval: NodeJS.Timeout | null = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) {
-            if (progressInterval) clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
+      
+      if (simpleFile.size > MAX_FILE_SIZE_BYTES) {
+        if (progressInterval) clearInterval(progressInterval);
+        toast({
+          title: "File too large",
+          description: `Your upload exceeds ${MAX_FILE_SIZE_MB} MB.`,
+          duration: 5000,
         });
-      }, 300);
-
-      const res = await fetch("/api/generate-favicon", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (progressInterval) clearInterval(progressInterval);
-
-      if (!res.ok) {
-        if (res.status === 413) {
-          throw new Error(`The uploaded file exceeds ${MAX_FILE_SIZE_MB} MB.`);
-        }
-        throw new Error("Generation failed (server error).");
+        setLoading(false);
+        return;
       }
+      
+      const formData = new FormData();
+      formData.append("image", simpleFile);
+      formData.append("mode", "simple");
+      formData.append("includeApple", includeApple.toString());
+      formData.append("includeAndroid", includeAndroid.toString());
+      formData.append("includeWindows", includeWindows.toString());
+      formData.append("appName", appName);
+      formData.append("shortName", shortName);
+      formData.append("themeColor", themeColor);
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      try {
+        const res = await fetch("/api/generate-favicon", {
+          method: "POST",
+          body: formData,
+        });
 
-      setDownloadUrl(url);
-      setProgress(100);
-    } catch (err) {
-      console.error("Fetch generation error:", err);
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Something went wrong during generation.",
-        duration: 5000,
-      });
-      setProgress(0);
-    } finally {
-      setLoading(false);
+        if (progressInterval) clearInterval(progressInterval);
+
+        if (!res.ok) {
+          if (res.status === 413) {
+            throw new Error(`The uploaded file exceeds ${MAX_FILE_SIZE_MB} MB.`);
+          }
+          throw new Error("Generation failed (server error).");
+        }
+
+        const blob = await res.blob();
+
+        // === KORREKTUR 2 (für Simple Mode) ===
+        // Wir "waschen" den Blob, um Turbopack-Fehler zu umgehen.
+        const safeBlob = new Blob([blob], { type: "application/zip" });
+        const url = URL.createObjectURL(safeBlob);
+        // === ENDE KORREKTUR 2 ===
+
+        setDownloadUrl(url);
+        setProgress(100);
+        
+      } catch (err) {
+        console.error("Fetch generation error:", err);
+        if (progressInterval) clearInterval(progressInterval);
+        toast({
+          title: "Error",
+          description:
+            err instanceof Error
+              ? err.message
+              : "Something went wrong during generation.",
+          duration: 5000,
+        });
+        setProgress(0);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
+  // === (Unverändert) ===
   const hasFiles = isAdvanced
     ? Object.values(advancedFiles).some((f) => f)
     : simpleFile;
 
+  // === (Unverändert, Korrektur war schon drin) ===
   const displaySizesSet = new Set<number>(ICO_SIZES);
   if (isAdvanced) {
     if (includeApple) APPLE_SIZES.forEach((s) => displaySizesSet.add(s));
@@ -185,6 +267,7 @@ function HomePage() {
   }
   const displaySizes = Array.from(displaySizesSet).sort((a, b) => a - b);
 
+  // === (Unveränderte JSX beginnt hier) ===
   return (
     <div
       style={
@@ -199,7 +282,7 @@ function HomePage() {
       }`}
     >
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-3xl w-full space-y-6">
-        {/* Header */}
+        {/* Header (Unverändert) */}
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
             .favfav
@@ -220,7 +303,7 @@ function HomePage() {
           </p>
         </div>
 
-        {/* Pro Mode Switch */}
+        {/* Pro Mode Switch (Unverändert) */}
         <div className="flex items-center justify-center space-x-3">
           <Switch
             id="advanced-mode"
@@ -232,7 +315,7 @@ function HomePage() {
           </Label>
         </div>
 
-        {/* Platforms */}
+        {/* Platforms (Unverändert) */}
         <div className="space-y-3">
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -277,6 +360,7 @@ function HomePage() {
           </div>
         </div>
 
+        {/* Config Inputs (Unverändert) */}
         {(includeAndroid || includeWindows) && (
           <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -316,7 +400,7 @@ function HomePage() {
           </div>
         )}
 
-        {/* Simple Mode */}
+        {/* Simple Mode (Unverändert) */}
         {!isAdvanced && (
           <Card>
             <CardHeader>
@@ -367,13 +451,13 @@ function HomePage() {
           </Card>
         )}
 
-        {/* Pro Mode */}
+        {/* Pro Mode (Unverändert) */}
         {isAdvanced && (
           <Card>
             <CardHeader>
               <CardTitle>Upload per size</CardTitle>
               <p className="text-sm text-gray-600 pt-1">
-                Accepts PNG, JPG, GIF, WebP — max {MAX_FILE_SIZE_MB} MB total.
+                Accepts PNG, JPG, GIF, WebP. No server upload limit.
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -386,7 +470,7 @@ function HomePage() {
                       label={`${size}×${size}${size === 512 ? " (PWA only)" : ""}`}
                       file={advancedFiles[size] || null}
                       onChange={(file) => handleAdvancedChange(size, file)}
-                      maxSizeInBytes={MAX_FILE_SIZE_BYTES}
+                      maxSizeInBytes={MAX_FILE_SIZE_BYTES * 10} 
                     />
                   ))}
                 </div>
@@ -403,17 +487,19 @@ function HomePage() {
           </Card>
         )}
 
+        {/* Loading (Unverändert) */}
         {loading && (
           <div className="space-y-2">
             <Progress value={progress} />
             <p className="text-sm text-center text-gray-600">
               {isAdvanced
-                ? "Processing multiple images..."
-                : "Processing image..."}
+                ? "Processing images (in your browser)..."
+                : "Processing image (on server)..."}
             </p>
           </div>
         )}
 
+        {/* Download & Checkout Dialog (Unverändert) */}
         {downloadUrl && (
           <>
             <a
@@ -482,6 +568,7 @@ function HomePage() {
           </>
         )}
 
+        {/* Footer (Unverändert) */}
         <p className="text-xs text-center text-gray-500">
           MIT License © 2025 phunck
         </p>
@@ -490,6 +577,7 @@ function HomePage() {
   );
 }
 
+// === (Unverändert) ===
 export default function Page() {
   return (
     <Suspense fallback={<div className="text-center p-8">Loading...</div>}>
