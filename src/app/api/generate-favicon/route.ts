@@ -4,15 +4,6 @@ import { generateFaviconZip } from "@/lib/favicon-generator";
 
 export const runtime = "nodejs";
 
-// ✅ Setzt das Request-Limit auf 4 MB
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "4mb",
-    },
-  },
-};
-
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
