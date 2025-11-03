@@ -461,6 +461,14 @@ function HomePage() {
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
+              <InfoTip>
+                <p className="font-medium">Pro Mode Recommendation:</p>
+                <p>
+                  If you provide an image for a specific size (e.g., <strong>180x180</strong>),
+                  it will be used <strong>1:1</strong> without scaling. If a size is missing, the <strong>largest</strong> image you uploaded
+                  will be used as the source and scaled accordingly.
+                </p>
+              </InfoTip>
               <ScrollArea className="h-96 pr-4">
                 <div className="space-y-4">
                   {displaySizes.map((size) => (
