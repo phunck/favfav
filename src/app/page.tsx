@@ -25,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, Github } from "lucide-react";
 import { CustomFileInput } from "@/components/CustomFileInput";
 import { InfoTip } from "@/components/InfoTip";
 import { useGenerativeTheme } from "@/lib/useGenerativeTheme";
@@ -601,6 +601,15 @@ function HomePage() {
                       }}
                     >
                       Pay securely with Stripe
+                    </Button>
+                    <Button
+                      className="w-full h-11 bg-[#24292e] hover:bg-[#1a1e22] text-white font-semibold rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
+                      onClick={() => {
+                        window.open("https://github.com/sponsors/phunck", "_blank", "noopener,noreferrer");
+                      }}
+                    >
+                      <Github className="w-5 h-5" />
+                      Support on GitHub Sponsors
                     </Button>
                   </div>
 
